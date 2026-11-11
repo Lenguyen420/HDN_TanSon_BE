@@ -128,7 +128,7 @@ Access token sống 15 phút, session sống tối đa 7 ngày. Refresh token đ
 ASSOCIATION_API_URL=http://127.0.0.1:4000/api/v1
 ~~~
 
-Frontend gọi Next.js cùng origin, Next.js giữ token trong cookie HttpOnly và chuyển tiếp tới backend. Không đặt MongoDB URI hay JWT_SECRET trong NEXT_PUBLIC_*. Dữ liệu hội viên, Ban chấp hành và hồ sơ đăng ký lấy từ backend; các module nội dung khác hiện vẫn cục bộ. API không tự nạp hội viên mẫu. FE hiện chỉ dùng dữ liệu hội viên/hồ sơ lấy từ backend và đã bỏ các nút chuyển dữ liệu mẫu cũ.
+Frontend gọi Next.js cùng origin, Next.js giữ token trong cookie HttpOnly và chuyển tiếp tới backend. Không đặt MongoDB URI hay JWT_SECRET trong NEXT_PUBLIC_*. Dữ liệu hội viên, Ban chấp hành, hồ sơ đăng ký, tin tức, sự kiện, thăm hội viên, thông báo, banner và thông tin Hội lấy từ backend. Hội phí, tài trợ và lịch sử tham gia còn lưu cục bộ. API không tự nạp dữ liệu mẫu hoặc tự chuyển nội dung cũ trong trình duyệt lên MongoDB.
 
 Hồ sơ đăng ký đã có collection `registrations` và API quản trị riêng. Phần xác thực dùng cùng tài khoản backend; mật khẩu độc lập với Kidoedu cũ.
 
@@ -190,3 +190,154 @@ Hồ sơ được lưu reviewedBy, reviewedAt, rejectionReason và memberId. H�
 Import giữ trạng thái cũ, không ghi đè theo id và không tạo lại hồ sơ đã xóa mềm. Hồ sơ approved phải có memberId trỏ tới hội viên đã có (có thể đã xóa mềm để giữ lịch sử); chuyển hội viên trước khi chuyển hồ sơ đã duyệt. Không tự tạo hội viên trong thao tác import. Mỗi hồ sơ import dùng transaction riêng; response trả {data:{imported,skipped,failed:[{id,message}]}} để biết các hồ sơ chưa chuyển được. importedBy lưu người thực hiện import; không giả lập người hoặc thời điểm đã duyệt trước đây.
 
 Frontend đã bỏ nút chuyển hồ sơ mẫu cũ. API import vẫn có thể dùng cho chuyển dữ liệu nghiệp vụ được chuẩn bị riêng. Trạng thái duyệt và số liệu chờ duyệt trên giao diện lấy từ API. Mini App chưa được sửa ở repository hiện tại; endpoint public sẵn sàng để nối ở giai đoạn sau.
+
+## API nội dung và hoạt động
+
+Đã nối đủ 5 màn hình trong nhóm **Nội dung & hoạt động** của admin-dashboard. Mỗi nhóm dùng collection MongoDB riêng: `news`, `events`, `member_visits`, `notifications`, `banners`. Không tự tạo nội dung mẫu.
+
+Các đường dẫn có tiền tố `/api/v1`; thay `{collection}` bằng `news`, `events`, `member-visits`, `notifications` hoặc `banners`:
+
+| Method | Đường dẫn | Chức năng |
+| --- | --- | --- |
+| GET | /admin/{collection} | Danh sách quản trị, gồm bản nháp |
+| GET | /admin/{collection}/:id | Chi tiết |
+| POST | /admin/{collection} | Tạo mới, trả HTTP 201 |
+| PUT | /admin/{collection}/:id | Gửi đầy đủ nội dung để cập nhật |
+| DELETE | /admin/{collection}/:id | Xóa mềm, giữ bản ghi trên MongoDB |
+| GET | /public/{collection} | Danh sách nội dung đã công bố |
+| GET | /public/{collection}/:id | Chi tiết đã công bố; nội dung ẩn trả 404 |
+
+Mọi API `/admin` yêu cầu Bearer access token và kiểm tra phiên như API hội viên. Tạo mới có thể bỏ `id` để sinh UUID; mã không đổi khi sửa. Body chỉ nhận đúng các trường được khai báo; không nhận timestamps hoặc deletedAt từ client. Xóa mềm không cho sửa lại qua PUT.
+
+Query: `page=1`, `limit=20` (tối đa 100), `search`, `status`; bài viết/sự kiện/thăm hội viên có thêm `topic`, thông báo có thêm `category`. `topic` và `category` lọc chính xác; tìm kiếm không phân biệt hoa/thường, ký tự regex được xử lý như văn bản. API công khai không nhận `status` và không cho ghi dữ liệu. Response giống API hội viên: danh sách `{data:[...],pagination:{page,limit,total}}`, chi tiết/tạo/sửa `{data:{...}}`, xóa `{success:true}`.
+
+Body tin tức:
+
+~~~json
+{
+  "title": "Kết nối doanh nghiệp Tân Sơn",
+  "topic": "Hoạt động Hội",
+  "publishedAt": "2026-11-11",
+  "status": "draft",
+  "image": "",
+  "author": "Ban biên tập",
+  "summary": "Nội dung tóm tắt chương trình.",
+  "paragraphs": ["Đoạn thứ nhất.", "Đoạn thứ hai."]
+}
+~~~
+
+Sự kiện dùng các trường tin tức và thêm `event` bắt buộc:
+
+~~~json
+{
+  "date": "2026-11-20",
+  "time": "08:00 - 11:00",
+  "venue": "Hội trường",
+  "address": "Phường Tân Sơn",
+  "agenda": [{"time":"08:00","title":"Đón tiếp"}]
+}
+~~~
+
+Thăm hội viên dùng các trường tin tức và thêm `visit` bắt buộc:
+
+~~~json
+{
+  "company": "Công ty mẫu",
+  "representative": "Nguyễn Văn A",
+  "date": "2026-11-11",
+  "address": "Phường Tân Sơn",
+  "field": "Thương mại"
+}
+~~~
+
+Body thông báo:
+
+~~~json
+{
+  "title": "Thông báo sinh hoạt Hội",
+  "category": "Hoạt động Hội",
+  "date": "2026-11-11",
+  "time": "08:00",
+  "status": "draft",
+  "description": "Nội dung tóm tắt.",
+  "paragraphs": ["Nội dung thông báo."]
+}
+~~~
+
+Body banner:
+
+~~~json
+{
+  "image": "/association/banner.webp",
+  "alt": "Hoạt động kết nối doanh nghiệp",
+  "order": 1,
+  "status": "inactive"
+}
+~~~
+
+Ngày dùng YYYY-MM-DD có thật; giờ thông báo để trống hoặc HH:mm (24 giờ), giờ sự kiện/lịch trình là chuỗi để hỗ trợ khung giờ. `paragraphs` có ít nhất một đoạn không rỗng. Bài viết/thông báo mặc định `draft`; banner mặc định `inactive` khi bỏ status. Ảnh nhận URL HTTP(S), đường dẫn bắt đầu bằng `/`, hoặc data URL JPG/PNG/WebP base64 tối đa 1.400.000 ký tự, tương thích ImagePicker hiện tại. Không nhận SVG, javascript URL hoặc URL dạng `//host`. Body các API quản trị nội dung giới hạn 2 MiB; các API cũ vẫn 256 KiB. Chưa có endpoint upload file riêng.
+
+API công khai chỉ trả `published` có ngày công bố không ở tương lai theo múi giờ Việt Nam; thông báo xét thêm giờ nếu có. Banner công khai chỉ trả `active`, sắp theo `order` tăng dần, mã làm khóa phụ ổn định. Sự kiện sắp theo ngày tổ chức giảm dần, chuyến thăm theo ngày thăm giảm dần, tin tức theo ngày công bố giảm dần. Thay đổi ngày tổ chức không thay đổi ngày công bố.
+
+Dashboard đã có Axios service `api/contentApi.ts`, route chuyển tiếp cùng origin `/api/association/{collection}` và hook lấy dữ liệu từ backend. Lưu/sửa/xóa dùng cookie HttpOnly; lỗi API được hiển thị trên giao diện. Nội dung cũ trong localStorage được giữ lại nhưng không tự nhập vào MongoDB hoặc dùng làm dữ liệu thay thế khi API lỗi. Mini App chưa được sửa; có thể nối các endpoint public ở trên.
+
+Kiểm thử nội dung nằm trong `test/content.test.cjs`, dùng MongoDB tạm riêng và không kết nối Atlas. Kiểm thử Next.js tùy chọn trong `test/api.test.cjs` bao gồm CRUD đủ năm nhóm nội dung, cookie HttpOnly, chặn origin lạ và đường dẫn sai.
+
+### Lưu ảnh trong uploads
+
+Ảnh người dùng chọn vẫn được trình duyệt thu nhỏ và gửi cùng body tạo/sửa nội dung. Backend giải mã ảnh JPG/PNG/WebP, kiểm tra chữ ký định dạng, sinh tên UUID và ghi file vào thư mục tương ứng:
+
+~~~text
+uploads/
+  news/
+  events/
+  member-visits/
+  banners/
+~~~
+
+Trường `image` lưu trong MongoDB và trả về API là đường dẫn tương đối, ví dụ `uploads/news/550e8400-e29b-41d4-a716-446655440000.webp`. Không lưu base64 của ảnh tải mới trong MongoDB. Khi sửa nội dung và giữ ảnh cũ, gửi lại nguyên đường dẫn; khi bỏ ảnh gửi chuỗi rỗng (banner vẫn bắt buộc có ảnh). Backend kiểm tra file của đường dẫn uploads tồn tại trước khi lưu. Nếu thao tác database thất bại, file mới được dọn lại; file cũ được giữ để không làm hỏng bản ghi khác hoặc lịch sử xóa mềm.
+
+File được phục vụ qua `GET /uploads/{folder}/{filename}` ở gốc backend, ngoài tiền tố `/api/v1`. Dashboard có route cùng origin `/uploads/[...path]` để chuyển tiếp ảnh từ backend và hiển thị trong xem trước, bảng, chi tiết và tổng quan. Không cần thay trường image thành URL tuyệt đối trong DB. Đường dẫn ảnh tĩnh/HTTP(S) cũ tiếp tục được hỗ trợ; bản ghi base64 cũ chuyển thành file khi được lưu lại.
+
+Các thư mục được tạo khi backend khởi động; Git chỉ giữ `.gitkeep`, bỏ qua file ảnh. Khi triển khai, giữ thư mục uploads trên ổ lưu trữ bền vững và sao lưu cùng database.
+
+## API Thông tin Hội
+
+Phần Cấu hình → Thông tin Hội của admin-dashboard đã nối backend cho ba nhóm: Giới thiệu Hội, Liên hệ & hỗ trợ, Trợ lý sự kiện. Dữ liệu nằm trong collection `association_settings`, với `_id` cố định `association`; không có danh sách nhiều cấu hình hoặc API xóa.
+
+| Method | Đường dẫn (tiền tố /api/v1) | Quyền và kết quả |
+| --- | --- | --- |
+| GET | /admin/settings | Bearer token SUPER_ADMIN hoặc STAFF, lấy cấu hình và thông tin lần sửa |
+| PUT | /admin/settings | Bearer token, tạo lần đầu hoặc cập nhật cấu hình chung, HTTP 200 |
+| GET | /public/settings | Không cần token, Mini App đọc thông tin Hội; không trả người sửa hoặc timestamps |
+
+Response `{data:{id:"association",...}}`. Bản quản trị có thêm `updatedAt` và `updatedBy`, backend tự ghi từ tài khoản đăng nhập. Các endpoint trả `Cache-Control: no-store`. GET không nhận query hoặc tham số id; PUT chỉ nhận body cấu hình, không nhận query.
+
+Body PUT:
+
+~~~json
+{
+  "name": "Hội Doanh nghiệp Phường Tân Sơn",
+  "slogan": "Trách nhiệm - Sẵn sàng - Vươn mình",
+  "introduction": "Giới thiệu Hội và các hoạt động chính.",
+  "mission": "Kết nối và đồng hành cùng doanh nghiệp.",
+  "department": "Ban thư ký",
+  "address": "Địa chỉ liên hệ của Hội",
+  "hours": "Thứ hai - thứ sáu, 08:00 - 17:00",
+  "phone": "0900000001",
+  "email": "contact@example.com",
+  "zaloUrl": "https://zalo.me/123456789",
+  "assistantGreeting": "Xin chào! Tôi có thể giúp gì cho bạn?",
+  "assistantQuestions": "Đăng ký sự kiện ở đâu? | Tại mục Sự kiện.\nLiên hệ ai? | Ban thư ký."
+}
+~~~
+
+`name` và `slogan` bắt buộc, không được chỉ có khoảng trắng. PUT gửi toàn bộ cấu hình; trường tùy chọn bỏ qua hoặc gửi chuỗi rỗng sẽ được xóa về `""`. `id` có thể bỏ qua hoặc bằng `association`; không thể thay mã. Các trường ngoài schema, kể cả `updatedBy`, `updatedAt`, `role`, `logo`, đều bị từ chối. Chưa bổ sung trường tải logo vì biểu mẫu hiện dùng logo nhận diện cố định.
+
+Giới hạn: name 250 ký tự, slogan 500; introduction và mission mỗi trường 20.000; department 250; address 1.000; hours 500; phone 30; email 254; zaloUrl 2.048; assistantGreeting 5.000; assistantQuestions 30.000. Email phải hợp lệ hoặc trống, điện thoại dùng chữ số và dấu `+(). -`, liên kết Zalo là URL HTTPS không chứa tài khoản/mật khẩu hoặc để trống. Câu hỏi–trả lời lưu dưới dạng chuỗi theo biểu mẫu, tối đa 100 dòng có nội dung, mỗi dòng `câu hỏi | câu trả lời`; cho phép dòng trống và ký tự `|` bổ sung trong câu trả lời. Dữ liệu là văn bản, không phải HTML để thực thi.
+
+Khi chưa lưu lần đầu, GET trả tên Hội và khẩu hiệu mặc định hiện có, các trường liên hệ và trợ lý trống; không ghi bản mặc định vào DB khi đọc. Lưu đồng thời lần đầu vẫn chỉ tạo một bản ghi; các lần lưu sau thay toàn bộ cấu hình theo yêu cầu hoàn tất cuối cùng. Không có cơ chế gộp chỉnh sửa đồng thời.
+
+Frontend dùng `api/settingsApi.ts` và route `/api/association/settings` (GET, PUT), token nằm trong cookie HttpOnly. Form khóa thao tác khi đang lưu, hiển thị lỗi API và tải lại dữ liệu sau lưu thành công. Hook dữ liệu và bản xuất JSON sử dụng thông tin Hội lấy từ API. Cấu hình cũ trong localStorage không tự chuyển hoặc dùng thay thế khi API lỗi; không ghi đè dữ liệu MongoDB bằng dữ liệu trình duyệt. Mini App chưa được sửa, có thể nối `GET /api/v1/public/settings` để lấy cấu hình.
+
+Kiểm thử tại `test/settings.test.cjs` dùng MongoDB tạm, bao gồm quyền truy cập, cấu hình mặc định, lưu đồng thời, lưu/xóa giá trị tùy chọn, kiểm tra dữ liệu, bảo vệ trường hệ thống và đọc lại sau khi khởi động lại app. Luồng cookie qua Next.js được kiểm tra tùy chọn trong `test/api.test.cjs` cùng các module khác.

@@ -7,3 +7,6 @@ coverage/
 
 
 .reference/
+uploads/**/*
+!uploads/**/
+!uploads/**/.gitkeep

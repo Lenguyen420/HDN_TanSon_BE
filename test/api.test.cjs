@@ -2,6 +2,11 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { randomBytes } = require("node:crypto");
 const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const { mkdtemp, rm } = require("node:fs/promises");
+const { join, resolve, sep } = require("node:path");
+const { tmpdir } = require("node:os");
+const { png } = require("./image-fixture.cjs");
+let uploadDirectory;
 let mongo, app, server, closeApp, base, accessToken, refreshToken;
 const password = randomBytes(24).toString("base64url");
 async function request(path, method = "GET", body, token = accessToken) {
@@ -24,7 +29,8 @@ test.before(async () => {
   process.env.ADMIN_NAME = "Quản trị kiểm thử";
   const runtime = await import("../src/main.js");
   closeApp = runtime.closeApp;
-  app = await runtime.createApp();
+  uploadDirectory = await mkdtemp(join(tmpdir(), "tanson-uploads-"));
+  app = await runtime.createApp({ uploadDirectory });
   server = await runtime.listen(
     app,
     process.env.TEST_FRONTEND_URL ? 4001 : 0,
@@ -35,6 +41,14 @@ test.before(async () => {
 test.after(async () => {
   if (app) await closeApp(app, server);
   if (mongo) await mongo.stop();
+  if (uploadDirectory) {
+    assert.ok(
+      resolve(uploadDirectory).startsWith(
+        resolve(tmpdir()) + sep + "tanson-uploads-",
+      ),
+    );
+    await rm(uploadDirectory, { recursive: true, force: true });
+  }
 });
 test("API auth và hội viên hoạt động với MongoDB thật dùng riêng cho kiểm thử", async (t) => {
   await t.test("chặn truy cập hội viên khi chưa đăng nhập", async () => {
@@ -531,7 +545,7 @@ test("API auth và hội viên hoạt động với MongoDB thật dùng riêng 
 });
 
 test(
-  "Next.js nối Express bằng cookie HttpOnly và CRUD hội viên",
+  "Next.js nối Express bằng cookie HttpOnly, hội viên, hồ sơ và nội dung",
   { skip: !process.env.TEST_FRONTEND_URL },
   async () => {
     const origin = process.env.TEST_FRONTEND_URL;
@@ -652,6 +666,130 @@ test(
     );
     assert.equal(rejected.status, 200);
     assert.equal(rejected.body.data.rejectionReason, "Thiếu hồ sơ");
+    const article = {
+      title: "Nội dung qua Next.js",
+      topic: "Hoạt động Hội",
+      publishedAt: "2026-11-11",
+      summary: "Kiểm thử nối frontend",
+      paragraphs: ["Nội dung đầy đủ"],
+      status: "draft",
+      image: "data:image/png;base64," + png().toString("base64"),
+      author: "Ban biên tập",
+    };
+    const content = {
+      news: article,
+      events: {
+        ...article,
+        event: {
+          date: "2026-11-20",
+          time: "08:00",
+          venue: "Hội trường",
+          address: "Tân Sơn",
+          agenda: [],
+        },
+      },
+      "member-visits": {
+        ...article,
+        visit: {
+          company: "Doanh nghiệp",
+          representative: "Nguyễn Văn A",
+          date: "2026-11-11",
+          address: "",
+          field: "",
+        },
+      },
+      notifications: {
+        title: "Thông báo",
+        category: "Chung",
+        date: "2026-11-11",
+        time: "08:00",
+        status: "draft",
+        description: "Thông tin Hội",
+        paragraphs: ["Nội dung"],
+      },
+      banners: {
+        image: "/association/banner.webp",
+        alt: "Banner",
+        order: 1,
+        status: "inactive",
+      },
+    };
+    for (const [collection, dto] of Object.entries(content)) {
+      const endpoint = "/api/association/" + collection;
+      const created = await frontend(endpoint, "POST", dto);
+      assert.equal(created.status, 201, JSON.stringify(created.body));
+      const id = created.body.data.id;
+      if (dto.image?.startsWith("data:")) {
+        assert.match(created.body.data.image, /^uploads\//);
+        const asset = await fetch(origin + "/" + created.body.data.image);
+        assert.equal(asset.status, 200);
+        assert.equal(asset.headers.get("content-type"), "image/png");
+        assert.deepEqual(
+          Buffer.from(await asset.arrayBuffer()),
+          Buffer.from(dto.image.split(",")[1], "base64"),
+        );
+      }
+      assert.equal((await frontend(endpoint + "/" + id)).body.data.id, id);
+      assert.ok(
+        (await frontend(endpoint)).body.data.some((row) => row.id === id),
+      );
+      const update = await frontend(endpoint + "/" + id, "PUT", {
+        ...dto,
+        status: collection === "banners" ? "active" : "published",
+      });
+      assert.equal(update.status, 200);
+      assert.equal((await frontend(endpoint + "/" + id, "DELETE")).status, 200);
+      assert.equal((await frontend(endpoint + "/" + id)).status, 404);
+    }
+    assert.equal(
+      (
+        await frontend("/api/association/news", "POST", article, {
+          headers: { Origin: "https://untrusted.example" },
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await frontend("/api/association/news/invalid/path")).status,
+      404,
+    );
+    const settings = {
+      name: "Hội kiểm thử cấu hình qua Next.js",
+      slogan: "Kết nối và đồng hành",
+      email: "association@example.com",
+      assistantGreeting: "Xin chào hội viên",
+      assistantQuestions: "Liên hệ ai? | Ban thư ký",
+    };
+    assert.equal((await frontend("/api/association/settings")).status, 200);
+    assert.equal(
+      (
+        await frontend("/api/association/settings", "PUT", settings, {
+          headers: { Origin: "https://untrusted.example" },
+        })
+      ).status,
+      403,
+    );
+    const savedSettings = await frontend(
+      "/api/association/settings",
+      "PUT",
+      settings,
+    );
+    assert.equal(savedSettings.status, 200);
+    assert.equal(savedSettings.body.data.name, settings.name);
+    assert.equal(
+      (await frontend("/api/association/settings")).body.data
+        .assistantQuestions,
+      settings.assistantQuestions,
+    );
+    assert.equal(
+      (
+        await frontend("/api/association/settings", "PUT", {
+          ...settings,
+          email: "not-an-email",
+        })
+      ).status,
+      400,
+    );
     assert.equal((await frontend("/api/auth/refresh", "POST")).status, 200);
     assert.equal(
       (await frontend("/api/association/members/frontend-e2e-member", "DELETE"))
@@ -661,5 +799,7 @@ test(
     assert.equal((await frontend("/api/auth/logout", "POST")).status, 200);
     assert.equal(cookies.get("admin_access_token"), "");
     assert.equal((await frontend("/api/association/members")).status, 401);
+    assert.equal((await frontend("/api/association/news")).status, 401);
+    assert.equal((await frontend("/api/association/settings")).status, 401);
   },
 );

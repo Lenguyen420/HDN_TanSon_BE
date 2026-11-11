@@ -9,6 +9,15 @@ import createAdminModel from "./models/AdminUser.js";
 import createSessionModel from "./models/AuthSession.js";
 import createMemberModel from "./models/Member.js";
 import createRegistrationModel from "./models/Registration.js";
+import createContentModels from "./models/Content.js";
+import createSettingsModel from "./models/AssociationSettings.js";
+import { SettingsService } from "./services/settingsService.js";
+import { ContentService } from "./services/contentService.js";
+import {
+  ImageStorage,
+  defaultUploadDirectory,
+} from "./services/imageStorage.js";
+import { contentDefinitions } from "./dto/content.dto.js";
 import { AuthService } from "./services/authService.js";
 import { MembersService } from "./services/memberService.js";
 import { RegistrationService } from "./services/registrationService.js";
@@ -16,15 +25,21 @@ import appRouter from "./routers/appRouter.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
 import { createRateLimiter } from "./middlewares/rateLimit.js";
 
-export async function createApp() {
+export async function createApp({
+  uploadDirectory = defaultUploadDirectory,
+} = {}) {
   const config = loadEnvironment();
   const connection = await connectDB(config.get("MONGODB_URI"));
   try {
+    const imageStorage = new ImageStorage(uploadDirectory);
+    await imageStorage.initialize();
     const models = {
       admins: createAdminModel(connection),
       sessions: createSessionModel(connection),
       members: createMemberModel(connection),
       registrations: createRegistrationModel(connection),
+      content: createContentModels(connection),
+      settings: createSettingsModel(connection),
     };
     const services = {
       auth: new AuthService(
@@ -34,6 +49,18 @@ export async function createApp() {
         config,
       ),
       members: new MembersService(models.members),
+      settings: new SettingsService(models.settings),
+      content: Object.fromEntries(
+        Object.entries(contentDefinitions).map(([key, definition]) => [
+          key,
+          new ContentService(
+            models.content[key],
+            definition,
+            imageStorage,
+            key,
+          ),
+        ]),
+      ),
       registrations: new RegistrationService(
         models.registrations,
         models.members,
@@ -49,6 +76,17 @@ export async function createApp() {
     app.locals.services = services;
     app.use(helmet());
     app.use(
+      "/uploads",
+      express.static(uploadDirectory, {
+        dotfiles: "deny",
+        index: false,
+        maxAge: "1y",
+        immutable: true,
+        setHeaders: (res) =>
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
+      }),
+    );
+    app.use(
       cors({
         origin: (config.get("CORS_ORIGINS") || "http://localhost:3003")
           .split(",")
@@ -56,6 +94,16 @@ export async function createApp() {
         credentials: true,
       }),
     );
+    // Content forms include a resized image up to 1.4 MB as a data URL.
+    app.use("/api/v1/admin", (req, res, next) => {
+      if (
+        /^\/(news|events|member-visits|notifications|banners)(\/|$)/.test(
+          req.path,
+        )
+      )
+        return express.json({ limit: "2mb" })(req, res, next);
+      next();
+    });
     app.use(express.json({ limit: "256kb" }));
     app.use("/api/v1", createRateLimiter(120), appRouter(services));
     app.use((req, res) =>
