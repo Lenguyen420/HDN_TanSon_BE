@@ -1,0 +1,36 @@
+{
+  "name": "tanson-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/main.js",
+    "start:dev": "nodemon src/main.js",
+    "server": "nodemon src/main.js",
+    "build": "node scripts/check.cjs",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "format": "prettier --write \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\""
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^18.0.10",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.24.8",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.2.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.9.10"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "main": "src/main.js",
+  "description": "Backend Hội Doanh nghiệp Tân Sơn - Express, JavaScript ES Modules và MongoDB"
+}
