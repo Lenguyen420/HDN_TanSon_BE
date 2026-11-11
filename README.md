@@ -128,7 +128,7 @@ Access token sống 15 phút, session sống tối đa 7 ngày. Refresh token đ
 ASSOCIATION_API_URL=http://127.0.0.1:4000/api/v1
 ~~~
 
-Frontend gọi Next.js cùng origin, Next.js giữ token trong cookie HttpOnly và chuyển tiếp tới backend. Không đặt MongoDB URI hay JWT_SECRET trong NEXT_PUBLIC_*. Dữ liệu hội viên, Ban chấp hành và hồ sơ đăng ký lấy từ backend; các module nội dung khác hiện vẫn cục bộ. API không tự nạp hội viên mẫu; bấm Chuyển hội viên cũ lên MongoDB trên frontend để chuyển dữ liệu có sẵn.
+Frontend gọi Next.js cùng origin, Next.js giữ token trong cookie HttpOnly và chuyển tiếp tới backend. Không đặt MongoDB URI hay JWT_SECRET trong NEXT_PUBLIC_*. Dữ liệu hội viên, Ban chấp hành và hồ sơ đăng ký lấy từ backend; các module nội dung khác hiện vẫn cục bộ. API không tự nạp hội viên mẫu. FE hiện chỉ dùng dữ liệu hội viên/hồ sơ lấy từ backend và đã bỏ các nút chuyển dữ liệu mẫu cũ.
 
 Hồ sơ đăng ký đã có collection `registrations` và API quản trị riêng. Phần xác thực dùng cùng tài khoản backend; mật khẩu độc lập với Kidoedu cũ.
 
@@ -189,4 +189,4 @@ Hồ sơ được lưu reviewedBy, reviewedAt, rejectionReason và memberId. H�
 
 Import giữ trạng thái cũ, không ghi đè theo id và không tạo lại hồ sơ đã xóa mềm. Hồ sơ approved phải có memberId trỏ tới hội viên đã có (có thể đã xóa mềm để giữ lịch sử); chuyển hội viên trước khi chuyển hồ sơ đã duyệt. Không tự tạo hội viên trong thao tác import. Mỗi hồ sơ import dùng transaction riêng; response trả {data:{imported,skipped,failed:[{id,message}]}} để biết các hồ sơ chưa chuyển được. importedBy lưu người thực hiện import; không giả lập người hoặc thời điểm đã duyệt trước đây.
 
-Frontend có nút Chuyển hồ sơ cũ lên MongoDB, vẫn giữ dữ liệu cục bộ làm bản đối chiếu. Trạng thái duyệt và số liệu chờ duyệt trên giao diện lấy từ API. Mini App chưa được sửa ở repository hiện tại; endpoint public sẵn sàng để nối ở giai đoạn sau.
+Frontend đã bỏ nút chuyển hồ sơ mẫu cũ. API import vẫn có thể dùng cho chuyển dữ liệu nghiệp vụ được chuẩn bị riêng. Trạng thái duyệt và số liệu chờ duyệt trên giao diện lấy từ API. Mini App chưa được sửa ở repository hiện tại; endpoint public sẵn sàng để nối ở giai đoạn sau.
