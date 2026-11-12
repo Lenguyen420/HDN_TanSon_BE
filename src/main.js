@@ -29,6 +29,7 @@ import { AuthService } from "./services/authService.js";
 import { MembersService } from "./services/memberService.js";
 import { MemberAccessService } from "./services/memberAccessService.js";
 import { RegistrationService } from "./services/registrationService.js";
+import { RegistrationNotificationService } from "./services/registrationNotificationService.js";
 import appRouter from "./routers/appRouter.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
 import { createRateLimiter } from "./middlewares/rateLimit.js";
@@ -66,6 +67,9 @@ export async function createApp({
       ),
       members: new MembersService(models.members),
       zaloSdkProfiles: new ZaloSdkProfileService(models.zaloSdkProfiles),
+      registrationNotifications: new RegistrationNotificationService(
+        models.registrations,
+      ),
       memberAccess: new MemberAccessService(
         models.members,
         config,

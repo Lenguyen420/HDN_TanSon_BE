@@ -12,6 +12,7 @@ export const RegistrationSchema = new Schema(
     taxCode: String,
     date: { type: String, required: true },
     note: String,
+    notificationTokenHash: { type: String, select: false, index: true },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

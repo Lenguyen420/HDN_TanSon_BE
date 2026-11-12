@@ -4,6 +4,7 @@ import { Router } from "express";
 import authRouter from "./authRouter.js";
 import zaloOAuthRouter from "./zaloOAuthRouter.js";
 import zaloSdkProfileRouter from "./zaloSdkProfileRouter.js";
+import registrationNotificationRouter from "./registrationNotificationRouter.js";
 import memberRouter from "./memberRouter.js";
 import memberAccessRouter from "./memberAccessRouter.js";
 import registrationRouter, {
@@ -16,6 +17,7 @@ import settingsRouter from "./settingsRouter.js";
 export default function appRouter(services) {
   const router = Router();
   router.get("/health", healthController);
+  router.use(registrationNotificationRouter(services));
   router.use("/auth", authRouter(services));
   router.use("/auth/zalo", zaloOAuthRouter(services));
   router.use("/admin/members", memberRouter(services));

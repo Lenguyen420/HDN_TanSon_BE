@@ -1,5 +1,15 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Thông báo xét duyệt đăng ký
+
+- `GET /api/v1/admin/registration-inbox?page=1&limit=100`: yêu cầu admin Bearer token, trả thông báo hồ sơ đăng ký và tổng hồ sơ chờ duyệt, có phân trang.
+- `POST /api/v1/public/registration-notifications`: body `{tokens: [<mã theo dõi 64 ký tự hex>]}`, tối đa 20 mã; chỉ trả thông báo cho các hồ sơ sở hữu mã tương ứng. Không có API truy cập kết quả bằng ID Zalo chưa xác minh.
+- `POST /api/v1/public/registrations` nhận thêm `notificationToken` tùy chọn. Mini App sinh mã bằng CSPRNG và lưu trên thiết bị trước khi gửi; backend chỉ lưu SHA-256 trong trường ẩn `notificationTokenHash`. Không trả mã/hash cho admin hay API công khai khác.
+
+Thông báo được suy ra trực tiếp từ bản ghi đăng ký đã commit, gồm sự kiện tiếp nhận và duyệt/từ chối. Approval dùng transaction hiện tại nên lỗi tạo hội viên không sinh thông báo duyệt giả; callback lặp không tạo sự kiện trùng. Các ID sự kiện ổn định để frontend lưu trạng thái đã đọc. Backend không tự gán quyền hội viên cho hồ sơ SDK chưa xác minh.
+
+Admin và Mini App polling mỗi 5 giây khi ứng dụng hiển thị, cập nhật ngay khi quay lại tab; đây là cập nhật trong ứng dụng, chưa có push khi đóng Zalo. Không cần WebSocket hoặc tiến trình nền thường trực trên Vercel. Mã theo dõi là bí mật đọc kết quả, gửi trong body POST, không đặt trong URL. Giữ bí mật trên thiết bị; xóa bộ nhớ/đổi thiết bị mất khả năng theo dõi. Hồ sơ cũ không có token không tự nhận kết quả theo luồng này. Triển khai backend trước, sau đó admin và Mini App.
+
 ## Mini App: lưu tên/ảnh SDK chưa xác minh
 
 Luồng Mini App hiện tại gọi `POST /api/v1/public/zalo-profiles` sau khi người dùng cho phép `scope.userInfo`. Body chỉ nhận `{zaloUserId, name, avatar}` từ SDK. Backend upsert theo ID do client báo vào collection riêng `zalo_sdk_profiles`, ghi `verificationStatus=unverified`, `source=mini-app-sdk` và thời điểm báo cấp quyền. Không gọi Graph API hoặc cần App Secret cho luồng này, vì vậy có thể tiếp tục dùng backend Vercel. Phần triển khai Việt Nam bên dưới chỉ cần khi sử dụng lại xác thực Zalo phía server.

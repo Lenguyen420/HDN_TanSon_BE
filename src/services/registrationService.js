@@ -4,11 +4,11 @@ import {
   BadRequestError,
   HttpError,
 } from "../utils/httpError.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 const today = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 const present = (row) => {
-  const { _id, deletedAt, ...rest } = row;
+  const { _id, deletedAt, notificationTokenHash, ...rest } = row;
   return { ...rest, id: _id };
 };
 export class RegistrationService {
@@ -70,7 +70,18 @@ export class RegistrationService {
     return { data: present(row.toObject()) };
   }
   async submitPublic(dto) {
-    const result = await this.create({ ...dto, date: today() });
+    const { notificationToken, ...fields } = dto;
+    const result = await this.create({
+      ...fields,
+      date: today(),
+      ...(notificationToken
+        ? {
+            notificationTokenHash: createHash("sha256")
+              .update(notificationToken)
+              .digest("hex"),
+          }
+        : {}),
+    });
     return {
       data: { id: result.data.id, status: result.data.status },
       message: "Đã tiếp nhận hồ sơ. Vui lòng chờ Hội xét duyệt.",

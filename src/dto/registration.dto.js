@@ -19,7 +19,13 @@ const fields = {
   taxCode: text(30).optional(),
   note: text(3000).optional(),
 };
-export const publicRegistrationSchema = z.strictObject(fields);
+export const publicRegistrationSchema = z.strictObject({
+  ...fields,
+  notificationToken: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
+});
 export const registrationSchema = z.strictObject({
   ...fields,
   id: idSchema.optional(),
