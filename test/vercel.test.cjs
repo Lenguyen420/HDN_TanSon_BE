@@ -7,6 +7,24 @@ const { access } = require("node:fs/promises");
 const mongoose = require("mongoose");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 
+test("startup diagnostics identify configuration errors without logging secrets", async () => {
+  const { startupDiagnostic } =
+    await import("../src/utils/startupDiagnostic.js");
+  assert.match(
+    startupDiagnostic(new Error("Điền MONGODB_URI trong .env trước khi chạy.")),
+    /^MONGODB_URI_INVALID:/,
+  );
+  assert.match(
+    startupDiagnostic(new Error("JWT_SECRET cần ít nhất 32 ký tự.")),
+    /^JWT_SECRET_INVALID:/,
+  );
+  const unknown = startupDiagnostic(
+    new Error("mongodb+srv://user:private-password@example.com/db"),
+  );
+  assert.match(unknown, /^INITIALIZATION_FAILED:/);
+  assert.doesNotMatch(unknown, /private-password|example.com/);
+});
+
 test("Vercel entry initializes on request, retries failures and shares one connection", async () => {
   const saved = { ...process.env };
   let mongo, server;
