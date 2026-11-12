@@ -10,8 +10,8 @@ const diagnostics = new Map([
   ],
   ["PORT không hợp lệ.", "PORT_INVALID: Kiểm tra biến PORT."],
   [
-    "ADMIN_PASSWORD cần ít nhất 12 ký tự.",
-    "ADMIN_PASSWORD_INVALID: ADMIN_PASSWORD phải có ít nhất 12 ký tự.",
+    "ADMIN_PASSWORD cần ít nhất 6 ký tự.",
+    "ADMIN_PASSWORD_INVALID: ADMIN_PASSWORD phải có ít nhất 6 ký tự.",
   ],
   [
     "Không kết nối được MongoDB. Kiểm tra URI, DNS và IP được phép trên Atlas.",

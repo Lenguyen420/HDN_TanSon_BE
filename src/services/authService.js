@@ -19,8 +19,8 @@ export class AuthService {
       password = this.config.get("ADMIN_PASSWORD");
     if (!username || !password) return;
     if (await this.users.exists({ username })) return;
-    if (password.length < 12)
-      throw Error("ADMIN_PASSWORD cần ít nhất 12 ký tự.");
+    if (password.length < 6)
+      throw Error("ADMIN_PASSWORD cần ít nhất 6 ký tự.");
     await this.users.updateOne(
       { username },
       {
