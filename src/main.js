@@ -37,6 +37,11 @@ import { RegistrationNotificationService } from "./services/registrationNotifica
 import appRouter from "./routers/appRouter.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
 import { createApiRateLimiter } from "./middlewares/rateLimit.js";
+import { TradeAuthService } from "./services/tradeAuthService.js";
+import { TradeService } from "./services/tradeService.js";
+import { TradeMediaService } from "./services/tradeMediaService.js";
+import { TradeCommunityService } from "./services/tradeCommunityService.js";
+import { TradeAnalyticsService } from "./services/tradeAnalyticsService.js";
 
 export async function createApp({
   uploadDirectory = defaultUploadDirectory,
@@ -106,6 +111,20 @@ export async function createApp({
         connection,
       ),
     };
+    services.tradeAuth = new TradeAuthService(
+      connection,
+      models,
+      createTokenService(config.get("JWT_SECRET")),
+      services,
+    );
+    services.trade = new TradeService(
+      connection,
+      services.tradeAuth,
+      config.get("TRADE_ANALYTICS_HASH_SECRET") || config.get("JWT_SECRET"),
+    );
+    services.trade.mediaService = new TradeMediaService(services.trade);
+    services.trade.community = new TradeCommunityService(services.trade);
+    services.trade.analytics = new TradeAnalyticsService(services.trade);
     services.eventAttendance = new EventAttendanceService(
       models.eventAttendance,
       services.content.events,
@@ -116,6 +135,7 @@ export async function createApp({
       services.memberAccess,
     );
     await Promise.all([
+      services.trade.initialize(),
       introductionVideos.initialize(),
       models.eventAttendance.init(),
       models.zaloOAuth.flows.init(),

@@ -27,5 +27,13 @@ export default function errorMiddleware(error, req, res, next) {
             : "Có lỗi máy chủ. Vui lòng thử lại.";
   if (status === 500)
     console.error("[API] Internal error:", error?.name || "Error");
-  res.status(status).json({ statusCode: status, message });
+  res
+    .status(status)
+    .json({
+      statusCode: status,
+      message,
+      ...(error instanceof HttpError && typeof error.code === "string"
+        ? { success: false, code: error.code }
+        : {}),
+    });
 }

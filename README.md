@@ -542,3 +542,8 @@ Mỗi phần video mới dùng 2 lượt MongoDB nối tiếp (đọc metadata �
 Admin mới gửi thêm `chunkSize: 262144` khi POST tạo phiên để dùng phần 256 KiB, giảm nguy cơ timeout trên đường upload qua proxy. Backend lưu `chunkSize` trong metadata và dùng nó khi kiểm tra phần, hoàn tất và đọc HTTP Range; bản ghi cũ thiếu trường này vẫn dùng 2 MiB. Không gửi `chunkSize` vẫn tạo phiên 2 MiB để tương thích admin cũ. Chỉ hỗ trợ hai kích thước 256 KiB và 2 MiB. PUT chunk có hạn mức riêng 600 request/phút/IP (vẫn xác thực admin), không tiêu thụ hạn mức API chung 120 request/phút; một video 100 MiB cần 400 phần nhỏ. Deploy backend trước, rồi admin; không đổi metadata các video cũ.
 
 Ảnh mới lưu bằng GridFS dùng chunk 2 MiB, đủ chứa ảnh đã thu nhỏ trong một phần thay vì nhiều phần mặc định 255 KiB. Ảnh cũ vẫn đọc theo metadata GridFS, không cần migration. Proxy ảnh UUID ở admin dùng Next.js Data Cache 24 giờ; thay ảnh sinh URL UUID mới. Video Range không dùng chung cache ảnh.
+
+
+## Giao thương doanh nghiệp
+
+Module Giao thương theo đặc tả đã kết nối cả admin và Mini App: danh mục, đăng/kiểm duyệt tin, lưu tin, đánh giá/phản hồi, hội thoại và thống kê. Xem [tài liệu API, xác thực và triển khai](docs/trade-module.md). Deploy backend trước hai frontend; quản trị viên tạo danh mục trước khi hội viên đăng tin. MongoDB cần replica set hoặc Atlas cho transaction.
