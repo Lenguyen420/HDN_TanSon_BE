@@ -520,3 +520,13 @@ Deploy backend trước frontend. Dữ liệu được lưu trong collection eve
 POST /api/v1/admin/event-files cần token quản trị, body binary application/octet-stream và header X-File-Name là encodeURIComponent(tên file). Chấp nhận PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, JPG/PNG/WebP tối đa 4 MiB; kiểm tra signature theo phần mở rộng. Lưu trong GridFS bucket event_files, trả url /api/v1/public/event-files/:id; GET/HEAD URL này đọc nội dung gốc và tên file. Tài liệu/biên bản là file công khai được truy cập qua liên kết, không lưu trên ổ đĩa tạm Vercel. Chỉ tài khoản quản trị được tải lên. Các file cũ vẫn giữ khi sửa sự kiện.
 
 Trong event, documents và minutes đều optional; có thể lưu sự kiện trước và cập nhật sau. Schema chấp nhận URL HTTPS cũ hoặc đường dẫn managed /api/v1/public/event-files/:uuid. Không tạo thêm Vercel Function riêng, dùng Express router hiện tại.
+
+## Đăng ký tham gia, nhắc trước 30 phút và báo vắng
+
+POST /api/v1/public/events/:id/join nhận {token,name,company}, dùng cùng token với điểm danh. Chỉ nhận đăng ký trước giờ bắt đầu, sự kiện đã công bố và có khung giờ hợp lệ HH:mm - HH:mm (giờ Việt Nam, cùng ngày). Bấm lại cùng mã không tạo đăng ký trùng. Sự kiện cũ thiếu giờ kết thúc phải được cập nhật trước khi mở đăng ký; không tự đoán giờ kết thúc để kết luận vắng mặt.
+
+POST /api/v1/public/event-updates nhận {tokens:[{eventId,token}]} tối đa 100 mã/lần, trả participations và thông báo riêng. Nhắc lịch có hiệu lực từ 30 phút trước giờ bắt đầu; đăng ký trong 30 phút cuối nhận nhắc ngay. ID thông báo ổn định để đánh dấu đọc, đổi giờ sẽ tạo mốc nhắc mới. Mini App cập nhật mỗi 5 giây khi đang mở và khi quay lại ứng dụng.
+
+GET /api/v1/admin/event-inbox (JWT admin) trả thông báo vắng mặt có phân trang. Chỉ người có registeredAt nhưng chưa checkedAt sau giờ kết thúc được báo vắng. Khách chỉ điểm danh không được tính vào nhóm đã đăng ký vắng mặt. GET /admin/events/:id/attendance trả cả người đăng ký, đã điểm danh và vắng mặt. Không cho điểm danh mới sau giờ kết thúc khi có khung giờ đầy đủ; gửi lại yêu cầu điểm danh đã thành công vẫn trả phiếu cũ.
+
+Đây là thông báo trong Mini App/dashboard, không phải push Zalo. Thời điểm được tính trên server tại mỗi lần đọc API từ lịch sự kiện hiện tại: đóng ứng dụng hoặc backend khởi động lại không làm mất mốc nhắc. Không cần cron, OA token hay template Zalo. Không sửa dữ liệu giờ của người dùng để kiểm thử; bài test dùng clock riêng với MongoDB thử nghiệm. Deploy backend trước dashboard rồi Mini App.
