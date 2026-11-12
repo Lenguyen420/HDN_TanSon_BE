@@ -1,3 +1,4 @@
+import eventAttendanceRouter from "./eventAttendanceRouter.js";
 import { membersQuery } from "../dto/member.dto.js";
 import { validateQuery } from "../middlewares/validateRequest.js";
 import { Router } from "express";
@@ -17,6 +18,7 @@ import settingsRouter from "./settingsRouter.js";
 export default function appRouter(services) {
   const router = Router();
   router.get("/health", healthController);
+  router.use(eventAttendanceRouter(services));
   router.use(registrationNotificationRouter(services));
   router.use("/auth", authRouter(services));
   router.use("/auth/zalo", zaloOAuthRouter(services));

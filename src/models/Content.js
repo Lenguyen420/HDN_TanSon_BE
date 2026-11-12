@@ -1,5 +1,9 @@
 import { Schema } from "mongoose";
 
+const eventFileSchema = new Schema(
+  { id: String, title: String, url: String, publishedAt: String },
+  { _id: false },
+);
 const article = {
   title: { type: String, required: true },
   topic: { type: String, required: true },
@@ -21,6 +25,10 @@ const fields = {
           time: { type: String, required: true },
           venue: { type: String, required: true },
           address: { type: String, required: true },
+          host: String,
+          checkInEnabled: { type: Boolean, default: false },
+          documents: { type: [eventFileSchema], default: [] },
+          minutes: { type: [eventFileSchema], default: [] },
           agenda: [new Schema({ time: String, title: String }, { _id: false })],
         },
         { _id: false },

@@ -1,3 +1,5 @@
+import createEventAttendanceModel from "./models/EventAttendance.js";
+import { EventAttendanceService } from "./services/eventAttendanceService.js";
 import mongoose from "mongoose";
 import express from "express";
 import cors from "cors";
@@ -56,6 +58,7 @@ export async function createApp({
       zaloOAuth: createZaloOAuthModels(connection),
       registrations: createRegistrationModel(connection),
       content: createContentModels(connection),
+      eventAttendance: createEventAttendanceModel(connection),
       settings: createSettingsModel(connection),
     };
     const services = {
@@ -94,12 +97,17 @@ export async function createApp({
         connection,
       ),
     };
+    services.eventAttendance = new EventAttendanceService(
+      models.eventAttendance,
+      services.content.events,
+    );
     services.zaloOAuth = new ZaloOAuthService(
       models.zaloOAuth,
       config,
       services.memberAccess,
     );
     await Promise.all([
+      models.eventAttendance.init(),
       models.zaloOAuth.flows.init(),
       models.zaloOAuth.sessions.init(),
       models.zaloUsers.init(),

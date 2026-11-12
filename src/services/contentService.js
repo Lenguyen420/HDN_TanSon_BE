@@ -101,6 +101,12 @@ export class ContentService {
     if (dto.id && dto.id !== id)
       throw new BadRequestError("Không thể đổi mã nội dung.");
     const { id: ignored, ...fields } = dto;
+    // Update event fields individually so older admin forms preserve documents/minutes.
+    if (this.collection === "events" && fields.event) {
+      for (const [key, value] of Object.entries(fields.event))
+        fields["event." + key] = value;
+      delete fields.event;
+    }
     // Avoid writing a new file for a missing/deleted record.
     const current = await this.model
       .findOne({ _id: id, deletedAt: null })

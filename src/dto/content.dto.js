@@ -21,6 +21,26 @@ export const imageSchema = text(1_400_000).refine((value) => {
   }
 }, "Ảnh phải là đường dẫn uploads/..., URL HTTP(S), đường dẫn / hoặc ảnh JPG/PNG/WebP base64.");
 
+const eventFile = z.strictObject({
+  id: idSchema,
+  title: text(300).min(1),
+  url: text(2048).refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }, "Tài liệu cần URL HTTPS hợp lệ."),
+  publishedAt: dateSchema.optional(),
+});
+const eventFiles = z
+  .array(eventFile)
+  .max(100)
+  .refine(
+    (files) => new Set(files.map((file) => file.id)).size === files.length,
+    "Mã tài liệu không được trùng.",
+  );
 const paragraphs = z.array(text(10_000).min(1)).min(1).max(100);
 const status = z.enum(["draft", "published"]);
 const article = {
@@ -53,6 +73,10 @@ export const contentDefinitions = {
     body: z.strictObject({
       ...article,
       event: z.strictObject({
+        host: text(150).optional(),
+        checkInEnabled: z.boolean().optional(),
+        documents: eventFiles.optional(),
+        minutes: eventFiles.optional(),
         date: dateSchema,
         time: text(150).min(1),
         venue: text(300).min(1),

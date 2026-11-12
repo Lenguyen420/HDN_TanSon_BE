@@ -490,3 +490,26 @@ Ngày 12/11/2026 đã chuyển 1 ảnh theo xác nhận của chủ dự án; JS
 ### CORS cho Mini App đã deploy
 
 Backend luôn cho phép origin chính thức `https://h5.zdn.vn` của Zalo Mini App, đồng thời giữ các origin web trong `CORS_ORIGINS`. Middleware CORS áp dụng cả OPTIONS trước các route. Không dùng ký tự `*` hoặc thêm đường dẫn app vào origin. Redeploy backend sau khi cập nhật mã nguồn.
+
+## Hồ sơ và điểm danh sự kiện
+
+Mỗi sự kiện hỗ trợ thêm các trường trong đối tượng event:
+
+~~~json
+{
+  "host": "Ban chấp hành Hội",
+  "checkInEnabled": true,
+  "documents": [{ "id": "program", "title": "Chương trình.pdf", "url": "https://<storage>/program.pdf" }],
+  "minutes": [{ "id": "minutes", "title": "Biên bản.pdf", "url": "https://<storage>/minutes.pdf", "publishedAt": "2026-11-12" }]
+}
+~~~
+
+Thêm/sửa qua API quản trị events hiện có (JWT quản trị), không có dữ liệu mẫu tự tạo. Tài liệu/biên bản là file đã lưu trên dịch vụ ngoài, dùng URL HTTPS công khai; API này chưa nhận upload file PDF/Word. Biểu mẫu dashboard hiện tại chưa có trường nhập các file này. Khi biểu mẫu cũ gửi thiếu các trường mới, backend giữ nguyên tài liệu/biên bản và cấu hình điểm danh đã có.
+
+- POST /api/v1/public/events/:id/check-in nhận {token, name, company}; token là mã ngẫu nhiên 64 ký tự hex của thiết bị, tên bắt buộc. Điểm danh tự xác nhận, không cấp quyền hội viên và không xác minh hiện diện bằng QR/GPS.
+- GET /api/v1/public/events/:id/check-in dùng header X-Attendance-Token để đọc đúng phiếu của thiết bị. Không trả danh sách người tham dự công khai; chỉ lưu băm token trong database.
+- GET /api/v1/admin/events/:id/attendance?page=1&limit=100 dành cho quản trị, trả danh sách và phân trang.
+
+Điểm danh chỉ tiếp nhận khi sự kiện đã công bố, chưa xóa, event.checkInEnabled=true và event.date là hôm nay theo Asia/Ho_Chi_Minh. Bấm gửi lại cùng mã không sinh bản ghi trùng. Một người đổi thiết bị/xóa bộ nhớ có thể có mã khác; đây chưa phải cơ chế xác minh danh tính. Tắt điểm danh vẫn cho đọc phiếu cũ và gửi lại yêu cầu đã thành công để phục hồi khi mất kết nối.
+
+Deploy backend trước frontend. Dữ liệu được lưu trong collection event_attendance. Việc mở PDF trong webview Zalo cần kiểm tra trên Android/iOS theo header của dịch vụ lưu trữ; tài liệu có trang xem trực tuyến có thể dùng URL trang xem đó.
