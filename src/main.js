@@ -11,6 +11,8 @@ import createAdminModel from "./models/AdminUser.js";
 import createSessionModel from "./models/AuthSession.js";
 import createMemberModel from "./models/Member.js";
 import createZaloUserModel from "./models/ZaloUser.js";
+import createZaloSdkProfileModel from "./models/ZaloSdkProfile.js";
+import { ZaloSdkProfileService } from "./services/zaloSdkProfileService.js";
 import createZaloOAuthModels from "./models/ZaloOAuth.js";
 import { ZaloOAuthService } from "./services/zaloOAuthService.js";
 import createRegistrationModel from "./models/Registration.js";
@@ -49,6 +51,7 @@ export async function createApp({
       sessions: createSessionModel(connection),
       members: createMemberModel(connection),
       zaloUsers: createZaloUserModel(connection),
+      zaloSdkProfiles: createZaloSdkProfileModel(connection),
       zaloOAuth: createZaloOAuthModels(connection),
       registrations: createRegistrationModel(connection),
       content: createContentModels(connection),
@@ -62,6 +65,7 @@ export async function createApp({
         config,
       ),
       members: new MembersService(models.members),
+      zaloSdkProfiles: new ZaloSdkProfileService(models.zaloSdkProfiles),
       memberAccess: new MemberAccessService(
         models.members,
         config,
@@ -98,6 +102,14 @@ export async function createApp({
       services.registrations.initialize(),
     ]);
     const app = express();
+    // Vercel overwrites X-Forwarded-For. Other hosts opt in for their known proxy.
+    const proxyHops =
+      process.env.VERCEL === "1"
+        ? 1
+        : Number(config.get("TRUST_PROXY_HOPS") || 0);
+    if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 10)
+      throw new Error("TRUST_PROXY_HOPS phải là số nguyên từ 0 đến 10.");
+    if (proxyHops) app.set("trust proxy", proxyHops);
     app.disable("x-powered-by");
     app.locals.db = connection;
     app.locals.models = models;

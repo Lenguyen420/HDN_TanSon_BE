@@ -1,5 +1,56 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Mini App: lưu tên/ảnh SDK chưa xác minh
+
+Luồng Mini App hiện tại gọi `POST /api/v1/public/zalo-profiles` sau khi người dùng cho phép `scope.userInfo`. Body chỉ nhận `{zaloUserId, name, avatar}` từ SDK. Backend upsert theo ID do client báo vào collection riêng `zalo_sdk_profiles`, ghi `verificationStatus=unverified`, `source=mini-app-sdk` và thời điểm báo cấp quyền. Không gọi Graph API hoặc cần App Secret cho luồng này, vì vậy có thể tiếp tục dùng backend Vercel. Phần triển khai Việt Nam bên dưới chỉ cần khi sử dụng lại xác thực Zalo phía server.
+
+Endpoint không xác thực quyền sở hữu ID hoặc chứng minh việc cấp quyền; dữ liệu client gửi là thông tin tham khảo có thể bị giả mạo, không được dùng để xác thực, liên kết hội viên hoặc cấp quyền admin. Không lưu chung/ghi đè collection `zalo_users` đã xác minh. Endpoint không công khai đọc danh sách hồ sơ, từ chối trường ngoài schema và giới hạn tần suất ghi. Lần cấp quyền tiếp theo cập nhật tên/ảnh cùng ID báo cáo. Ảnh lưu dưới dạng URL, không tải file ảnh về backend. Backend chỉ báo thành công sau khi MongoDB ghi xong.
+
+Không cần chuyển VPS để dùng chế độ lưu SDK này. Deploy lại cả backend và Mini App; kiểm tra request `/public/zalo-profiles` trả HTTP 200, `verificationStatus: unverified`, `linked: false`, `member: null` và bản ghi trong Atlas → `zalo_sdk_profiles`.
+
+## Lỗi Zalo -501 và triển khai backend tại Việt Nam
+
+Mã `-501` từ `graph.zalo.me` nghĩa là Zalo hạn chế thông tin cá nhân vì IP gọi API không nằm trong Việt Nam, không phải token người dùng hết hạn. Backend trả HTTP 503 với hướng dẫn phù hợp và không ghi hồ sơ chưa xác minh. Nguồn: https://stc-developers.zdn.vn/docs/v2/social-api/tham-khao/ma-loi.
+
+Để lấy tên/ảnh/số điện thoại và lưu MongoDB, chạy backend trên VPS có IP Việt Nam. Đổi Vercel từ Mỹ sang Singapore/Hong Kong vẫn không phải IP Việt Nam. Không dùng dữ liệu tên/ảnh/ID do client tự gửi thay cho bước xác minh. Cấu hình bên dưới di chuyển toàn bộ backend, admin và Mini App vẫn giữ nơi triển khai hiện tại.
+
+1. Tạo VPS Linux Ubuntu có IPv4 public **tại Việt Nam**; cấu hình khởi đầu 2 vCPU, 2 GB RAM. Xác nhận vị trí IP với nhà cung cấp và thử lời gọi Zalo thật sau khi triển khai. Cài Docker Engine và Compose plugin theo https://docs.docker.com/engine/install/ubuntu/.
+2. Chọn domain backend thuộc quyền quản lý của bạn, ví dụ `api.tenmiencuaban.vn`. Tạo bản ghi DNS A trỏ domain tới IPv4 VPS. Trong firewall, cho phép TCP 80/443 và SSH từ IP quản trị; không mở cổng 4000. Docker có thể quản lý firewall riêng, nên ưu tiên quy tắc firewall của nhà cung cấp. `behdntanson.vercel.app` là domain Vercel cấp, không thể chuyển DNS của nó tới VPS.
+3. Clone repo trên VPS, vào thư mục backend chứa `package.json`, sao chép `.env.example` thành `.env` và điền các giá trị thật. Chỉ file `.env` trên máy chủ giữ bí mật; không commit vào Git.
+
+~~~env
+BACKEND_DOMAIN=api.tenmiencuaban.vn
+MONGODB_URI=<URI Atlas hiện tại>
+JWT_SECRET=<giữ nguyên khóa hiện tại nếu muốn giữ phiên>
+ADMIN_USERNAME=<tên admin hiện tại>
+ADMIN_PASSWORD=<mật khẩu cấu hình, ít nhất 12 ký tự>
+ADMIN_NAME=Quản trị viên Tân Sơn
+CORS_ORIGINS=https://<domain-admin>,https://h5.zdn.vn
+ZALO_APP_ID=<Zalo App ID>
+ZALO_APP_SECRET=<App Secret cùng ứng dụng>
+ZALO_REDIRECT_URI=https://api.tenmiencuaban.vn/api/v1/auth/zalo/callback
+~~~
+
+Các giá trị trong dấu `<...>` phải được thay bằng dữ liệu thật. CORS phải là origin thật đang chạy Mini App, xem Origin trong request; có thể thêm origin dev khi cần. Không đưa `VERCEL=1` vào `.env` VPS. Trong Atlas Network Access, thêm IPv4 VPS dạng `/32` và kiểm tra Database User có quyền đọc/ghi database hiện tại.
+
+4. Chạy tại gốc repo:
+
+~~~bash
+docker compose --env-file .env -f deploy/vietnam/compose.yaml up -d --build
+docker compose --env-file .env -f deploy/vietnam/compose.yaml ps
+docker compose --env-file .env -f deploy/vietnam/compose.yaml logs --tail=100 backend caddy
+~~~
+
+Dockerfile chạy Node.js 22 với user thường. Compose dùng Caddy tự cấp HTTPS cho domain hợp lệ; backend chỉ mở trong mạng Docker. Caddy là một proxy hop; `TRUST_PROXY_HOPS=1` do Compose đặt. Nếu tự chạy thêm proxy khác cần cấu hình đúng số hop, không đặt trust proxy=true. `Forwarded` không được dùng để nhận dạng client; dùng `X-Forwarded-For` theo chuỗi proxy tin cậy. Trên Vercel, app tự đặt một hop vì Vercel ghi lại header này. Bộ đếm rate limit hiện nằm trong từng instance.
+
+Compose đặt `IMAGE_STORAGE=mongodb`, ảnh mới lưu GridFS trong Atlas nên không cần ổ uploads trên VPS. Ảnh cũ đã nằm GridFS vẫn đọc được khi dùng cùng database. Nếu còn ảnh local uploads thì cần chuyển lên GridFS trước khi tắt máy chủ cũ. Caddy giữ chứng chỉ trong Docker volume.
+
+5. Mở `https://api.tenmiencuaban.vn/api/v1/health`, phải nhận HTTP 200 và `status: ok`. Health xác nhận MongoDB, chưa xác nhận IP có được Zalo chấp nhận.
+6. Đổi `ASSOCIATION_API_URL` của admin và `VITE_API_BASE_URL` của Mini App sang `https://api.tenmiencuaban.vn/api/v1`, build/deploy lại. Nếu chạy Mini App local, đổi `target` trong `vite.config.mts` sang host backend mới. Cho phép domain backend mới trong cấu hình mạng Zalo Mini App và cập nhật callback Web OAuth trên Zalo Developers.
+7. Trên điện thoại, chọn Cá nhân/Đăng kí và cấp quyền. Kiểm tra request `/api/v1/member/session` trả 200 và bản ghi được upsert vào collection `zalo_users`. Từ chối số điện thoại vẫn có thể lưu tên/ảnh; lấy số thật cần App Secret hợp lệ. Không cần gửi token hoặc bí mật lên chat. Chỉ ngừng backend cũ sau khi đã kiểm tra admin, Mini App, ảnh và database trên máy chủ mới.
+
+Máy phát triển hiện không có Docker nên cấu hình container chưa được chạy thử tại đây. Không có VPS/IP Việt Nam thì chưa thể xác nhận việc lấy thông tin Zalo thật đã hoạt động.
+
 ## Đăng nhập Zalo OAuth trên web
 
 Backend Express hỗ trợ OAuth v4 theo mẫu controller Zalo với PKCE SHA-256. Tài liệu giao thức: https://docs.zaloplatforms.com/docs/Social/social-api/tham-khao/user-access-token-v4.

@@ -3,6 +3,7 @@ import { validateQuery } from "../middlewares/validateRequest.js";
 import { Router } from "express";
 import authRouter from "./authRouter.js";
 import zaloOAuthRouter from "./zaloOAuthRouter.js";
+import zaloSdkProfileRouter from "./zaloSdkProfileRouter.js";
 import memberRouter from "./memberRouter.js";
 import memberAccessRouter from "./memberAccessRouter.js";
 import registrationRouter, {
@@ -19,6 +20,7 @@ export default function appRouter(services) {
   router.use("/auth/zalo", zaloOAuthRouter(services));
   router.use("/admin/members", memberRouter(services));
   router.use("/member", memberAccessRouter(services));
+  router.use("/public/zalo-profiles", zaloSdkProfileRouter(services));
   router.get(
     "/public/members",
     validateQuery(membersQuery),

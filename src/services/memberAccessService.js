@@ -44,6 +44,16 @@ export class MemberAccessService {
         httpStatus: Number.isInteger(response.status) ? response.status : null,
         providerCode: Number.isInteger(profile?.error) ? profile.error : null,
       });
+      if (profile?.error === -501)
+        throw new HttpError(
+          503,
+          "Máy chủ xác thực đang ngoài Việt Nam nên Zalo chưa cho phép truy xuất thông tin. Vui lòng liên hệ Hội để cấu hình máy chủ tại Việt Nam.",
+        );
+      if (response.status >= 500)
+        throw new HttpError(
+          503,
+          "Dịch vụ Zalo tạm thời không khả dụng. Vui lòng thử lại.",
+        );
       throw new UnauthorizedError(
         "Phiên Zalo không hợp lệ hoặc đã hết hạn. Vui lòng xác thực lại.",
       );
