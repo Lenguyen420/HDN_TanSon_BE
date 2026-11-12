@@ -1,5 +1,34 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Đăng nhập Zalo OAuth trên web
+
+Backend Express hỗ trợ OAuth v4 theo mẫu controller Zalo với PKCE SHA-256. Tài liệu giao thức: https://docs.zaloplatforms.com/docs/Social/social-api/tham-khao/user-access-token-v4.
+
+Thêm Environment Variables trên Vercel backend:
+
+~~~env
+ZALO_APP_ID=<App ID của ứng dụng Zalo Social Login>
+ZALO_APP_SECRET=<App Secret của cùng ứng dụng>
+ZALO_REDIRECT_URI=https://behdntanson.vercel.app/api/v1/auth/zalo/callback
+~~~
+
+Giữ `JWT_SECRET` ít nhất 32 ký tự; khóa này cũng được dùng để dẫn xuất khóa mã hóa token Zalo. Đổi khóa sẽ vô hiệu các phiên OAuth đang có. Trong Zalo Developers → ứng dụng → Đăng nhập → Web, đăng ký chính xác callback URL trên rồi redeploy backend. Không dùng ID Official Account thay App ID. Không đưa App Secret vào frontend.
+
+| Method | Đường dẫn | Chức năng |
+| --- | --- | --- |
+| GET | `/api/v1/auth/zalo/login` | Mở bằng điều hướng trình duyệt để chuyển sang trang cấp quyền Zalo |
+| GET | `/api/v1/auth/zalo/callback` | Zalo trả code/state, backend đổi code và xác minh hồ sơ, trả JSON người dùng/hội viên và đặt cookie phiên |
+| GET | `/api/v1/auth/zalo/me` | Kiểm tra danh tính hiện tại bằng cookie phiên |
+| POST | `/api/v1/auth/zalo/logout` | Thu hồi phiên và xóa cookie |
+
+State/verifier lưu trong MongoDB, ràng buộc cookie trình duyệt, hết hạn sau 10 phút và chỉ được sử dụng một lần. Phiên cookie HttpOnly, SameSite=Lax, Secure trên HTTPS sống tối đa 15 phút (không vượt thời hạn token Zalo). MongoDB chỉ giữ hash mã phiên và token Zalo được mã hóa AES-256-GCM; không trả access/refresh token ra JSON hoặc URL. Không tự làm mới token; hết phiên thì đăng nhập lại. Callback hiện trả JSON, chưa chuyển về một trang frontend cụ thể.
+
+Các API `/member/identity`, `/member/members` và `/member/session` nhận cookie OAuth hoặc Bearer token từ Mini App. Kiểm tra hội viên đang hoạt động ở mỗi yêu cầu; đăng nhập Zalo không tạo quyền admin hay tự tạo hồ sơ hội viên. OAuth web không tự cung cấp số điện thoại; luồng Mini App xin quyền tên/ảnh/số điện thoại bằng SDK vẫn giữ nguyên. Không giả định ID từ hai ứng dụng Zalo khác nhau tương đương: phải dùng đúng ứng dụng đã cấu hình.
+
+Cookie SameSite=Lax dùng cho web cùng site; frontend khác site cần một luồng chuyển tiếp cùng origin trước khi dùng cookie. Không chỉ thêm `credentials: include` để vượt giới hạn cookie cross-site. Khi phát triển localhost có thể dùng callback HTTP localhost với cùng đường dẫn nếu môi trường không phải production và đã đăng ký callback tương ứng trên Zalo.
+
+Kiểm thử OAuth dùng MongoDB tạm và giả lập phản hồi máy chủ Zalo: PKCE, chống CSRF, state một lần, token mã hóa, phiên qua instance, thu hồi/hết hạn và phân quyền. Đăng nhập Zalo thật cần cấu hình ứng dụng và thử bằng tài khoản đã cấp quyền.
+
 Express 5 + JavaScript ES Modules + Mongoose + MongoDB, cùng công nghệ chính với dự án job-portal/server. Mã nguồn ở thư mục hdn_tanson_be; frontend Next.js ở D:\HDN_TanSon_Admin\admin-dashboard.
 
 ## Chạy với MongoDB Atlas
@@ -382,3 +411,7 @@ Các index danh sách khớp trường sort thực tế (gồm _id để thứ t
 Chạy `npm run images:migrate-inline` để đếm, không thay đổi database. Chạy `npm run images:migrate-inline -- --apply --verify-origin https://behdntanson.vercel.app` để chuyển sang GridFS. Công cụ lưu backup trong .reference/inline-image-backups, xác minh ảnh truy cập được trước khi đổi reference và dùng so sánh giá trị ảnh cũ để giữ chỉnh sửa đồng thời. Không đổi id, nội dung bài hoặc updatedAt. Backup có cả giá trị gốc và đường dẫn thay thế.
 
 Ngày 12/11/2026 đã chuyển 1 ảnh theo xác nhận của chủ dự án; JSON /public/news giảm từ 196.874 xuống 473 byte. Backup: .reference/inline-image-backups/8ea60fc7-89b4-4227-8698-9adac168f98d.json.
+
+### CORS cho Mini App đã deploy
+
+Backend luôn cho phép origin chính thức `https://h5.zdn.vn` của Zalo Mini App, đồng thời giữ các origin web trong `CORS_ORIGINS`. Middleware CORS áp dụng cả OPTIONS trước các route. Không dùng ký tự `*` hoặc thêm đường dẫn app vào origin. Redeploy backend sau khi cập nhật mã nguồn.

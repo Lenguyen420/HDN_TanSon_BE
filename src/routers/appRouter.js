@@ -2,6 +2,7 @@ import { membersQuery } from "../dto/member.dto.js";
 import { validateQuery } from "../middlewares/validateRequest.js";
 import { Router } from "express";
 import authRouter from "./authRouter.js";
+import zaloOAuthRouter from "./zaloOAuthRouter.js";
 import memberRouter from "./memberRouter.js";
 import memberAccessRouter from "./memberAccessRouter.js";
 import registrationRouter, {
@@ -15,6 +16,7 @@ export default function appRouter(services) {
   const router = Router();
   router.get("/health", healthController);
   router.use("/auth", authRouter(services));
+  router.use("/auth/zalo", zaloOAuthRouter(services));
   router.use("/admin/members", memberRouter(services));
   router.use("/member", memberAccessRouter(services));
   router.get(

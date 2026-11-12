@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import express from "express";
 import cors from "cors";
+import { corsOptions } from "./config/cors.js";
 import helmet from "helmet";
 import { pathToFileURL } from "node:url";
 import { loadEnvironment } from "./config/environment.js";
@@ -10,6 +11,8 @@ import createAdminModel from "./models/AdminUser.js";
 import createSessionModel from "./models/AuthSession.js";
 import createMemberModel from "./models/Member.js";
 import createZaloUserModel from "./models/ZaloUser.js";
+import createZaloOAuthModels from "./models/ZaloOAuth.js";
+import { ZaloOAuthService } from "./services/zaloOAuthService.js";
 import createRegistrationModel from "./models/Registration.js";
 import createContentModels from "./models/Content.js";
 import createSettingsModel from "./models/AssociationSettings.js";
@@ -46,6 +49,7 @@ export async function createApp({
       sessions: createSessionModel(connection),
       members: createMemberModel(connection),
       zaloUsers: createZaloUserModel(connection),
+      zaloOAuth: createZaloOAuthModels(connection),
       registrations: createRegistrationModel(connection),
       content: createContentModels(connection),
       settings: createSettingsModel(connection),
@@ -81,7 +85,14 @@ export async function createApp({
         connection,
       ),
     };
+    services.zaloOAuth = new ZaloOAuthService(
+      models.zaloOAuth,
+      config,
+      services.memberAccess,
+    );
     await Promise.all([
+      models.zaloOAuth.flows.init(),
+      models.zaloOAuth.sessions.init(),
       models.zaloUsers.init(),
       services.auth.initialize(),
       services.registrations.initialize(),
@@ -92,14 +103,7 @@ export async function createApp({
     app.locals.models = models;
     app.locals.services = services;
     app.use(helmet());
-    app.use(
-      cors({
-        origin: (config.get("CORS_ORIGINS") || "http://localhost:3003")
-          .split(",")
-          .map((x) => x.trim()),
-        credentials: true,
-      }),
-    );
+    app.use(cors(corsOptions(config)));
     app.use("/uploads", imageStorage.middleware());
     app.use(
       "/uploads",

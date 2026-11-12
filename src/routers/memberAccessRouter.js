@@ -5,9 +5,16 @@ import { membersQuery } from "../dto/member.dto.js";
 import { createRateLimiter } from "../middlewares/rateLimit.js";
 import { HttpError } from "../utils/httpError.js";
 import { presentMember } from "../services/memberService.js";
+import { readCookie, zaloSessionCookie } from "./zaloOAuthRouter.js";
 
 export default function memberAccessRouter(services) {
   const router = Router();
+  const requestToken = async (req) => {
+    const header = req.headers.authorization || "";
+    if (header.startsWith("Bearer ")) return header.slice(7);
+    const cookie = readCookie(req, zaloSessionCookie);
+    return cookie ? services.zaloOAuth.accessToken(cookie) : "";
+  };
   router.use(createRateLimiter(30));
   router.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
@@ -19,9 +26,8 @@ export default function memberAccessRouter(services) {
       z.strictObject({ phoneToken: z.string().min(1).max(4096).optional() }),
     ),
     async (req, res) => {
-      const header = req.headers.authorization || "";
       const result = await services.memberAccess.session(
-        header.startsWith("Bearer ") ? header.slice(7) : "",
+        await requestToken(req),
         req.body.phoneToken,
       );
       res.json({
@@ -33,9 +39,8 @@ export default function memberAccessRouter(services) {
     },
   );
   router.use(async (req, res, next) => {
-    const header = req.headers.authorization || "";
     res.locals.identity = await services.memberAccess.identity(
-      header.startsWith("Bearer ") ? header.slice(7) : "",
+      await requestToken(req),
     );
     next();
   });
