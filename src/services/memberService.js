@@ -49,6 +49,9 @@ export class MembersService {
       throw new BadRequestError("Ngày sinh không được ở tương lai.");
     return {
       ...fields,
+      ...(fields.zaloUserId !== undefined
+        ? { zaloUserId: fields.zaloUserId || null }
+        : {}),
       initials: dto.name
         .split(/\s+/)
         .slice(-2)

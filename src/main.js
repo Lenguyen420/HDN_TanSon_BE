@@ -8,6 +8,7 @@ import { createTokenService } from "./config/jwt.js";
 import createAdminModel from "./models/AdminUser.js";
 import createSessionModel from "./models/AuthSession.js";
 import createMemberModel from "./models/Member.js";
+import createZaloUserModel from "./models/ZaloUser.js";
 import createRegistrationModel from "./models/Registration.js";
 import createContentModels from "./models/Content.js";
 import createSettingsModel from "./models/AssociationSettings.js";
@@ -20,6 +21,7 @@ import {
 import { contentDefinitions } from "./dto/content.dto.js";
 import { AuthService } from "./services/authService.js";
 import { MembersService } from "./services/memberService.js";
+import { MemberAccessService } from "./services/memberAccessService.js";
 import { RegistrationService } from "./services/registrationService.js";
 import appRouter from "./routers/appRouter.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
@@ -37,6 +39,7 @@ export async function createApp({
       admins: createAdminModel(connection),
       sessions: createSessionModel(connection),
       members: createMemberModel(connection),
+      zaloUsers: createZaloUserModel(connection),
       registrations: createRegistrationModel(connection),
       content: createContentModels(connection),
       settings: createSettingsModel(connection),
@@ -49,6 +52,11 @@ export async function createApp({
         config,
       ),
       members: new MembersService(models.members),
+      memberAccess: new MemberAccessService(
+        models.members,
+        config,
+        models.zaloUsers,
+      ),
       settings: new SettingsService(models.settings),
       content: Object.fromEntries(
         Object.entries(contentDefinitions).map(([key, definition]) => [
@@ -67,6 +75,7 @@ export async function createApp({
         connection,
       ),
     };
+    await models.zaloUsers.init();
     await services.auth.initialize();
     await services.registrations.initialize();
     const app = express();

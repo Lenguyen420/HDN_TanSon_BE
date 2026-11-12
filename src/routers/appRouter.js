@@ -1,6 +1,7 @@
 import { Router } from "express";
 import authRouter from "./authRouter.js";
 import memberRouter from "./memberRouter.js";
+import memberAccessRouter from "./memberAccessRouter.js";
 import registrationRouter, {
   publicRegistrationRouter,
 } from "./registrationRouter.js";
@@ -13,6 +14,7 @@ export default function appRouter(services) {
   router.get("/health", healthController);
   router.use("/auth", authRouter(services));
   router.use("/admin/members", memberRouter(services));
+  router.use("/member", memberAccessRouter(services));
   router.use("/admin/registrations", registrationRouter(services));
   router.use("/public/registrations", publicRegistrationRouter(services));
   router.use("/admin/settings", settingsRouter(services));

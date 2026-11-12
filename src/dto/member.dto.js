@@ -14,6 +14,11 @@ export const emailSchema = text(254).regex(/^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/);
 export const memberSchema = z.strictObject({
   id: idSchema.optional(),
   name: text(150).min(1),
+  zaloUserId: z
+    .string()
+    .trim()
+    .regex(/^$|^\d{1,100}$/)
+    .optional(),
   company: text(250).min(1),
   jobTitle: text(100).optional(),
   phone: text(30)

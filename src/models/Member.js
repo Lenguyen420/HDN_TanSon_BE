@@ -3,6 +3,7 @@ export const MemberSchema = new Schema(
   {
     _id: { type: String, required: true },
     sourceRegistrationId: String,
+    zaloUserId: { type: String, default: null },
     name: { type: String, required: true, trim: true },
     company: { type: String, required: true, trim: true },
     phone: String,
@@ -20,6 +21,13 @@ export const MemberSchema = new Schema(
   { timestamps: true, collection: "members" },
 );
 MemberSchema.index({ deletedAt: 1, createdAt: -1 });
+MemberSchema.index(
+  { zaloUserId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { zaloUserId: { $type: "string" } },
+  },
+);
 MemberSchema.index({ isBoard: 1, status: 1 });
 MemberSchema.index(
   { sourceRegistrationId: 1 },
