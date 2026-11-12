@@ -7,6 +7,7 @@ import {
   HttpError,
 } from "../utils/httpError.js";
 export const videoChunkSize = 2 * 1024 * 1024;
+export const smallVideoChunkSize = 256 * 1024;
 export const maxIntroductionVideoSize = 100 * 1024 * 1024;
 export const managedVideoPattern =
   /^\/api\/v1\/public\/introduction-videos\/([a-f0-9-]{36})$/;
@@ -46,8 +47,11 @@ export class IntroductionVideoService {
     if (!["mp4", "webm"].includes(extension))
       throw new BadRequestError("Chỉ hỗ trợ video MP4 hoặc WebM.");
     await this.cleanup();
+    const chunkSize = dto.chunkSize ?? videoChunkSize;
+    if (![smallVideoChunkSize, videoChunkSize].includes(chunkSize))
+      throw new BadRequestError("Kích thước phần video không hợp lệ.");
     const id = randomUUID(),
-      count = Math.ceil(dto.size / videoChunkSize);
+      count = Math.ceil(dto.size / chunkSize);
     await this.files.insertOne({
       _id: id,
       name,
@@ -56,10 +60,11 @@ export class IntroductionVideoService {
       owner,
       status: "uploading",
       count,
+      chunkSize,
       createdAt: new Date(),
       expiresAt: expiry(),
     });
-    return { data: { id, chunkSize: videoChunkSize, count } };
+    return { data: { id, chunkSize, count } };
   }
   async owned(id, owner, renew = false) {
     // Read metadata and renew the active session in one database round trip.
@@ -87,12 +92,10 @@ export class IntroductionVideoService {
   }
   async putPart(id, index, bytes, owner) {
     const file = await this.owned(id, owner, true);
+    const chunkSize = file.chunkSize ?? videoChunkSize;
     if (!Number.isInteger(index) || index < 0 || index >= file.count)
       throw new BadRequestError("Số thứ tự phần video không hợp lệ.");
-    const expected = Math.min(
-      videoChunkSize,
-      file.size - index * videoChunkSize,
-    );
+    const expected = Math.min(chunkSize, file.size - index * chunkSize);
     if (!Buffer.isBuffer(bytes) || bytes.length !== expected)
       throw new BadRequestError("Dung lượng phần video không khớp.");
     if (index === 0) {
@@ -140,6 +143,7 @@ export class IntroductionVideoService {
   }
   async complete(id, owner) {
     const file = await this.owned(id, owner);
+    const chunkSize = file.chunkSize ?? videoChunkSize;
     if (file.status !== "complete") {
       const parts = await this.parts
         .find({ uploadId: id }, { projection: { index: 1, length: 1 } })
@@ -150,8 +154,7 @@ export class IntroductionVideoService {
         parts.some(
           (part, index) =>
             part.index !== index ||
-            part.length !==
-              Math.min(videoChunkSize, file.size - index * videoChunkSize),
+            part.length !== Math.min(chunkSize, file.size - index * chunkSize),
         )
       )
         throw new HttpError(409, "Video chưa tải đủ các phần.");
@@ -197,6 +200,7 @@ export class IntroductionVideoService {
   async serve(id, req, res) {
     const file = await this.files.findOne({ _id: id, status: "complete" });
     if (!file) throw new NotFoundError("Không tìm thấy video.");
+    const chunkSize = file.chunkSize ?? videoChunkSize;
     const range = req.get("Range");
     let start = 0,
       end = file.size - 1;
@@ -247,8 +251,8 @@ export class IntroductionVideoService {
     if (req.method === "HEAD") return res.end();
     const parts = this.parts;
     async function* data() {
-      const first = Math.floor(start / videoChunkSize),
-        last = Math.floor(end / videoChunkSize);
+      const first = Math.floor(start / chunkSize),
+        last = Math.floor(end / chunkSize);
       let expected = first;
       const cursor = parts
         .find({ uploadId: id, index: { $gte: first, $lte: last } })
@@ -256,7 +260,7 @@ export class IntroductionVideoService {
       for await (const part of cursor) {
         if (part.index !== expected++) throw new Error("Missing video part");
         const bytes = bytesOf(part.data);
-        const offset = part.index * videoChunkSize;
+        const offset = part.index * chunkSize;
         yield bytes.subarray(
           Math.max(0, start - offset),
           Math.min(bytes.length, end - offset + 1),

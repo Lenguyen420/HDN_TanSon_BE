@@ -36,7 +36,7 @@ import { RegistrationService } from "./services/registrationService.js";
 import { RegistrationNotificationService } from "./services/registrationNotificationService.js";
 import appRouter from "./routers/appRouter.js";
 import errorMiddleware from "./middlewares/errorMiddleware.js";
-import { createRateLimiter } from "./middlewares/rateLimit.js";
+import { createApiRateLimiter } from "./middlewares/rateLimit.js";
 
 export async function createApp({
   uploadDirectory = defaultUploadDirectory,
@@ -162,7 +162,7 @@ export async function createApp({
       next();
     });
     app.use(express.json({ limit: "256kb" }));
-    app.use("/api/v1", createRateLimiter(120), appRouter(services));
+    app.use("/api/v1", createApiRateLimiter(), appRouter(services));
     app.use((req, res) =>
       res.status(404).json({ statusCode: 404, message: "Không tìm thấy API." }),
     );

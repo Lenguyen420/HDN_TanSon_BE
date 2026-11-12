@@ -2,21 +2,28 @@ import { Router, raw } from "express";
 import { z } from "zod";
 import authAdmin from "../middlewares/authAdmin.js";
 import { validateBody } from "../middlewares/validateRequest.js";
+import { createRateLimiter } from "../middlewares/rateLimit.js";
 import {
   videoChunkSize,
+  smallVideoChunkSize,
   maxIntroductionVideoSize,
 } from "../services/introductionVideoService.js";
 const id = z.string().uuid();
 export default function introductionVideoRouter(services) {
   const router = Router(),
     root = "/admin/introduction-videos";
-  router.use(root, authAdmin(services.auth));
+  // A 100 MiB upload needs 400 small chunks. Keep a separate bounded limit
+  // for this route, including unauthenticated requests.
+  router.use(root, createRateLimiter(600), authAdmin(services.auth));
   router.post(
     root,
     validateBody(
       z.strictObject({
         name: z.string().trim().min(1).max(200),
         size: z.number().int().min(12).max(maxIntroductionVideoSize),
+        chunkSize: z
+          .union([z.literal(smallVideoChunkSize), z.literal(videoChunkSize)])
+          .optional(),
       }),
     ),
     async (req, res) =>

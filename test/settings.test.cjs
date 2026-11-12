@@ -359,6 +359,10 @@ test("video máy tính: tải theo phần, kiểm tra quyền, lưu DB và đọ
   const conflicting = Buffer.from(bytes.subarray(0, chunkSize));
   conflicting[20] = 8;
   assert.equal((await part(0, conflicting)).status, 409);
+  // Records created before chunk-size negotiation have no chunkSize metadata.
+  await app.locals.db.db
+    .collection("introduction_videos")
+    .updateOne({ _id: id }, { $unset: { chunkSize: "" } });
   assert.equal(
     (await request(root + "/" + id + "/complete", "POST", {})).body.data.url,
     storedUrl,
@@ -432,4 +436,80 @@ test("video máy tính: tải theo phần, kiểm tra quyền, lưu DB và đọ
     ).status,
     200,
   );
+});
+
+test("256 KiB video parts complete and serve ranges across parts after restart", async () => {
+  const root = "/admin/introduction-videos";
+  const chunkSize = 256 * 1024;
+  const bytes = Buffer.alloc(2 * 1024 * 1024 + 13);
+  for (let index = 0; index < bytes.length; index++) bytes[index] = index % 251;
+  bytes.write("ftyp", 4);
+  assert.equal(
+    (
+      await request(root, "POST", {
+        name: "invalid-size.mp4",
+        size: bytes.length,
+        chunkSize: 1,
+      })
+    ).status,
+    400,
+  );
+  const created = await request(root, "POST", {
+    name: "small-parts.mp4",
+    size: bytes.length,
+    chunkSize,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.chunkSize, chunkSize);
+  assert.equal(created.body.data.count, 9);
+  const { id, count } = created.body.data;
+  const part = (index) =>
+    fetch(base + root + "/" + id + "/chunks/" + index, {
+      method: "PUT",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/octet-stream",
+      },
+      body: bytes.subarray(index * chunkSize, (index + 1) * chunkSize),
+    });
+  assert.equal((await part(8)).status, 200);
+  assert.equal(
+    (await request(root + "/" + id + "/complete", "POST", {})).status,
+    409,
+  );
+  for (let offset = 0; offset < count; offset += 3) {
+    const responses = await Promise.all(
+      Array.from({ length: Math.min(3, count - offset) }, (_, index) =>
+        part(offset + index),
+      ),
+    );
+    assert.ok(responses.every((response) => response.status === 200));
+  }
+  assert.equal(
+    (await request(root + "/" + id + "/complete", "POST", {})).status,
+    200,
+  );
+  await runtime.closeApp(app, server);
+  app = server = undefined;
+  await start();
+  const url = base + "/public/introduction-videos/" + id;
+  const all = await fetch(url);
+  assert.deepEqual(Buffer.from(await all.arrayBuffer()), bytes);
+  for (const [start, end] of [
+    [chunkSize - 3, chunkSize * 3 + 7],
+    [0, 2 * 1024 * 1024 - 1],
+  ]) {
+    const response = await fetch(url, {
+      headers: { Range: "bytes=" + start + "-" + end },
+    });
+    assert.equal(response.status, 206);
+    assert.equal(
+      response.headers.get("content-range"),
+      `bytes ${start}-${end}/${bytes.length}`,
+    );
+    assert.deepEqual(
+      Buffer.from(await response.arrayBuffer()),
+      bytes.subarray(start, end + 1),
+    );
+  }
 });
