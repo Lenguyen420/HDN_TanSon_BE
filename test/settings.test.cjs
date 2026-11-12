@@ -341,6 +341,16 @@ test("video máy tính: tải theo phần, kiểm tra quyền, lưu DB và đọ
   }
   assert.equal((await part(0, bytes.subarray(0, chunkSize), null)).status, 401);
   assert.equal((await part(0, Buffer.alloc(chunkSize))).status, 400);
+  // Exercise simultaneous new chunks and duplicate retries against the unique index.
+  const parallel = await Promise.all([
+    part(1, bytes.subarray(chunkSize, 2 * chunkSize)),
+    part(1, bytes.subarray(chunkSize, 2 * chunkSize)),
+    part(2, bytes.subarray(2 * chunkSize)),
+  ]);
+  assert.deepEqual(
+    parallel.map((response) => response.status),
+    [200, 200, 200],
+  );
   for (let index = 0; index < count; index++) {
     const data = bytes.subarray(index * chunkSize, (index + 1) * chunkSize);
     assert.equal((await part(index, data)).status, 200);
@@ -357,6 +367,8 @@ test("video máy tính: tải theo phần, kiểm tra quyền, lưu DB và đọ
     (await request(root + "/" + id + "/complete", "POST", {})).status,
     200,
   );
+  assert.equal((await part(0, bytes.subarray(0, chunkSize))).status, 200);
+  assert.equal((await part(0, conflicting)).status, 409);
   assert.equal(
     (
       await request("/admin/settings", "PUT", {

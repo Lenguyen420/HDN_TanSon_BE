@@ -61,8 +61,22 @@ export class IntroductionVideoService {
     });
     return { data: { id, chunkSize: videoChunkSize, count } };
   }
-  async owned(id, owner) {
-    const file = await this.files.findOne({ _id: id, owner });
+  async owned(id, owner, renew = false) {
+    // Read metadata and renew the active session in one database round trip.
+    // Completed uploads still allow an identical chunk to be retried.
+    const active = renew
+      ? await this.files.findOneAndUpdate(
+          {
+            _id: id,
+            owner,
+            status: "uploading",
+            expiresAt: { $gt: new Date() },
+          },
+          { $set: { expiresAt: expiry() } },
+          { returnDocument: "after" },
+        )
+      : null;
+    const file = active ?? (await this.files.findOne({ _id: id, owner }));
     if (
       !file ||
       file.status === "deleting" ||
@@ -72,7 +86,7 @@ export class IntroductionVideoService {
     return file;
   }
   async putPart(id, index, bytes, owner) {
-    const file = await this.owned(id, owner);
+    const file = await this.owned(id, owner, true);
     if (!Number.isInteger(index) || index < 0 || index >= file.count)
       throw new BadRequestError("Số thứ tự phần video không hợp lệ.");
     const expected = Math.min(
@@ -92,28 +106,22 @@ export class IntroductionVideoService {
           "Nội dung file không phải video MP4/WebM hợp lệ.",
         );
     }
-    if (file.status !== "complete") {
-      const active = await this.files.updateOne(
-        { _id: id, owner, status: "uploading", expiresAt: { $gt: new Date() } },
-        { $set: { expiresAt: expiry() } },
-      );
-      if (!active.matchedCount)
-        throw new HttpError(
-          409,
-          "Phiên tải video đã thay đổi. Vui lòng thử lại.",
-        );
-    }
     const digest = hash(bytes),
       filter = { uploadId: id, index };
-    let part = await this.parts.findOne(filter, { projection: { digest: 1 } });
-    if (part) {
-      if (part.digest !== digest)
-        throw new HttpError(409, "Phần video đã tải có nội dung khác.");
-      return { success: true };
-    }
-    if (file.status === "complete")
+    if (file.status === "complete") {
+      const part = await this.parts.findOne(filter, {
+        projection: { digest: 1 },
+      });
+      if (part) {
+        if (part.digest !== digest)
+          throw new HttpError(409, "Phần video đã tải có nội dung khác.");
+        return { success: true };
+      }
       throw new HttpError(409, "Video đã hoàn tất.");
+    }
     try {
+      // The unique (uploadId, index) index arbitrates concurrent retries.
+      // A new chunk needs no preliminary read of the parts collection.
       await this.parts.insertOne({
         ...filter,
         data: bytes,
@@ -122,8 +130,10 @@ export class IntroductionVideoService {
       });
     } catch (error) {
       if (error.code !== 11000) throw error;
-      part = await this.parts.findOne(filter, { projection: { digest: 1 } });
-      if (part.digest !== digest)
+      const part = await this.parts.findOne(filter, {
+        projection: { digest: 1 },
+      });
+      if (part?.digest !== digest)
         throw new HttpError(409, "Phần video đã tải có nội dung khác.");
     }
     return { success: true };
