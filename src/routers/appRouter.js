@@ -1,3 +1,4 @@
+import introductionVideoRouter from "./introductionVideoRouter.js";
 import eventAttendanceRouter from "./eventAttendanceRouter.js";
 import { membersQuery } from "../dto/member.dto.js";
 import { validateQuery } from "../middlewares/validateRequest.js";
@@ -18,6 +19,7 @@ import { contentDefinitions } from "../dto/content.dto.js";
 import settingsRouter from "./settingsRouter.js";
 export default function appRouter(services) {
   const router = Router();
+  router.use(introductionVideoRouter(services));
   router.use(eventFileRouter(services));
   router.get("/health", healthController);
   router.use(eventAttendanceRouter(services));

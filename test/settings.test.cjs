@@ -287,3 +287,137 @@ test("introduction video URL persists in MongoDB, survives old admin saves and c
     "",
   );
 });
+
+test("video máy tính: tải theo phần, kiểm tra quyền, lưu DB và đọc Range sau khởi động lại", async () => {
+  const bytes = Buffer.alloc(5 * 1024 * 1024 + 13, 7);
+  bytes.write("ftyp", 4, "ascii");
+  const root = "/admin/introduction-videos";
+  assert.equal(
+    (
+      await request(
+        root,
+        "POST",
+        { name: "intro.mp4", size: bytes.length },
+        null,
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await request(root, "POST", { name: "intro.exe", size: 20 })).status,
+    400,
+  );
+  const created = await request(root, "POST", {
+    name: "intro.mp4",
+    size: bytes.length,
+  });
+  assert.equal(created.status, 201);
+  const { id, chunkSize, count } = created.body.data;
+  const url = "/public/introduction-videos/" + id;
+  const storedUrl = "/api/v1" + url;
+  assert.equal((await fetch(base + url)).status, 404);
+  assert.equal(
+    (await request(root + "/" + id + "/complete", "POST", {})).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request("/admin/settings", "PUT", {
+        ...values,
+        introductionVideoUrl: storedUrl,
+      })
+    ).status,
+    400,
+  );
+  async function part(index, data, auth = token) {
+    return fetch(base + root + "/" + id + "/chunks/" + index, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        ...(auth ? { Authorization: "Bearer " + auth } : {}),
+      },
+      body: data,
+    });
+  }
+  assert.equal((await part(0, bytes.subarray(0, chunkSize), null)).status, 401);
+  assert.equal((await part(0, Buffer.alloc(chunkSize))).status, 400);
+  for (let index = 0; index < count; index++) {
+    const data = bytes.subarray(index * chunkSize, (index + 1) * chunkSize);
+    assert.equal((await part(index, data)).status, 200);
+    assert.equal((await part(index, data)).status, 200);
+  }
+  const conflicting = Buffer.from(bytes.subarray(0, chunkSize));
+  conflicting[20] = 8;
+  assert.equal((await part(0, conflicting)).status, 409);
+  assert.equal(
+    (await request(root + "/" + id + "/complete", "POST", {})).body.data.url,
+    storedUrl,
+  );
+  assert.equal(
+    (await request(root + "/" + id + "/complete", "POST", {})).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request("/admin/settings", "PUT", {
+        ...values,
+        introductionVideoUrl: storedUrl,
+      })
+    ).status,
+    200,
+  );
+  await runtime.closeApp(app, server);
+  app = null;
+  server = null;
+  await start();
+  assert.equal(
+    (await request("/public/settings", "GET", undefined, null)).body.data
+      .introductionVideoUrl,
+    storedUrl,
+  );
+  const all = await fetch(base + url);
+  assert.equal(all.status, 200);
+  assert.equal(all.headers.get("content-type"), "video/mp4");
+  assert.deepEqual(Buffer.from(await all.arrayBuffer()), bytes);
+  for (const [range, start, end] of [
+    ["bytes=2097140-2097180", 2097140, 2097180],
+    ["bytes=-13", bytes.length - 13, bytes.length - 1],
+    ["bytes=0-", 0, chunkSize - 1],
+  ]) {
+    const res = await fetch(base + url, { headers: { Range: range } });
+    assert.equal(res.status, 206);
+    assert.equal(
+      res.headers.get("content-range"),
+      `bytes ${start}-${end}/${bytes.length}`,
+    );
+    assert.deepEqual(
+      Buffer.from(await res.arrayBuffer()),
+      bytes.subarray(start, end + 1),
+    );
+  }
+  assert.equal(
+    (await fetch(base + url, { headers: { Range: "bytes=999999999-" } }))
+      .status,
+    416,
+  );
+  const head = await fetch(base + url, { method: "HEAD" });
+  assert.equal(head.headers.get("content-length"), String(bytes.length));
+  assert.equal((await head.arrayBuffer()).byteLength, 0);
+  const cancelled = (
+    await request(root, "POST", { name: "cancel.webm", size: 16 })
+  ).body.data.id;
+  assert.equal((await request(root + "/" + cancelled, "DELETE")).status, 200);
+  assert.equal(
+    (await request(root + "/" + cancelled + "/complete", "POST", {})).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request("/admin/settings", "PUT", {
+        ...values,
+        introductionVideoUrl: "",
+      })
+    ).status,
+    200,
+  );
+});

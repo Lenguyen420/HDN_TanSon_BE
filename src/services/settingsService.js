@@ -1,3 +1,5 @@
+import { managedVideoPattern } from "./introductionVideoService.js";
+import { BadRequestError } from "../utils/httpError.js";
 import { defaultSettings } from "../dto/settings.dto.js";
 
 function present(row, isPublic = false) {
@@ -12,8 +14,9 @@ function present(row, isPublic = false) {
 }
 
 export class SettingsService {
-  constructor(settings) {
+  constructor(settings, videos) {
     this.settings = settings;
+    this.videos = videos;
   }
 
   async get(isPublic = false) {
@@ -23,6 +26,12 @@ export class SettingsService {
 
   async update(dto, adminId) {
     const { id, ...fields } = dto;
+    const videoId =
+      fields.introductionVideoUrl?.match(managedVideoPattern)?.[1];
+    if (videoId && !(await this.videos?.exists(videoId)))
+      throw new BadRequestError(
+        "Video tải lên chưa hoàn tất hoặc không tồn tại.",
+      );
     const update = { $set: { ...fields, updatedBy: adminId } };
     let row;
     try {

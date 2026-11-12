@@ -534,3 +534,5 @@ GET /api/v1/admin/event-inbox (JWT admin) trả thông báo vắng mặt có ph�
 ## Video giới thiệu Hội
 
 Cấu hình introductionVideoUrl trong /admin/settings, lưu tại collection association_settings. Chỉ admin được sửa, /public/settings trả URL cho Mini App. Chấp nhận URL HTTPS (video trực tiếp MP4/WebM hoặc link YouTube); để rỗng để ẩn video. Không lưu file video hoặc base64 trong gói Mini App. Bản admin cũ gửi thiếu trường này giữ nguyên URL đã lưu.
+
+Video giới thiệu: chọn MP4/WebM từ máy tính (tối đa 100 MB) hoặc dán link YouTube. File được chia thành từng phần 2 MB, lưu trong các collection introduction_videos và introduction_video_parts của MongoDB; endpoint công khai hỗ trợ HTTP Range để phát/tua. Không lưu file trong thư mục tạm của Vercel. Phiên tải chưa hoàn tất hết hạn sau 24 giờ, được dọn khi tạo phiên tải tiếp theo. Chỉ admin đã đăng nhập được tải lên; cấu hình chỉ nhận URL video đã hoàn tất. Triển khai backend trước admin và Mini App.

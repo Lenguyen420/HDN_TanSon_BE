@@ -1,3 +1,4 @@
+import { IntroductionVideoService } from "./services/introductionVideoService.js";
 import createEventAttendanceModel from "./models/EventAttendance.js";
 import { EventAttendanceService } from "./services/eventAttendanceService.js";
 import mongoose from "mongoose";
@@ -62,7 +63,9 @@ export async function createApp({
       eventAttendance: createEventAttendanceModel(connection),
       settings: createSettingsModel(connection),
     };
+    const introductionVideos = new IntroductionVideoService(connection.db);
     const services = {
+      introductionVideos,
       eventFiles: new EventFileService(
         new mongoose.mongo.GridFSBucket(connection.db, {
           bucketName: "event_files",
@@ -85,7 +88,7 @@ export async function createApp({
         config,
         models.zaloUsers,
       ),
-      settings: new SettingsService(models.settings),
+      settings: new SettingsService(models.settings, introductionVideos),
       content: Object.fromEntries(
         Object.entries(contentDefinitions).map(([key, definition]) => [
           key,
@@ -113,6 +116,7 @@ export async function createApp({
       services.memberAccess,
     );
     await Promise.all([
+      introductionVideos.initialize(),
       models.eventAttendance.init(),
       models.zaloOAuth.flows.init(),
       models.zaloOAuth.sessions.init(),

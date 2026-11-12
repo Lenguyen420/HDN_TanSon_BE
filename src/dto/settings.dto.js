@@ -1,3 +1,4 @@
+import { managedVideoPattern } from "../services/introductionVideoService.js";
 import { z } from "zod";
 import { emailSchema, text } from "./member.dto.js";
 
@@ -24,7 +25,7 @@ export const settingsSchema = z.strictObject({
   introduction: text(20_000).default(""),
   introductionVideoUrl: text(2048)
     .refine((value) => {
-      if (!value) return true;
+      if (!value || managedVideoPattern.test(value)) return true;
       try {
         const url = new URL(value);
         return url.protocol === "https:" && !url.username && !url.password;
