@@ -69,6 +69,7 @@ export async function createApp({
       zaloSdkProfiles: new ZaloSdkProfileService(models.zaloSdkProfiles),
       registrationNotifications: new RegistrationNotificationService(
         models.registrations,
+        models.members,
       ),
       memberAccess: new MemberAccessService(
         models.members,

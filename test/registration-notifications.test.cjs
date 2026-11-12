@@ -71,6 +71,11 @@ test("submission notifies admins; approval/rejection reach only the correspondin
   );
   assert.deepEqual((await notices([secret()])).body.data, []);
   assert.equal((await notices([a])).body.data.length, 1);
+  const pendingProfile = (await notices([a])).body.profiles;
+  assert.equal(pendingProfile.length, 1);
+  assert.equal(pendingProfile[0].fullName, "Người A");
+  assert.equal(pendingProfile[0].member, null);
+  assert.deepEqual((await notices([secret()])).body.profiles, []);
   const id = first.body.data.id;
   assert.equal(
     (await request(`/admin/registrations/${id}/approve`, "POST", {}, admin))
@@ -83,6 +88,24 @@ test("submission notifies admins; approval/rejection reach only the correspondin
     409,
   );
   const mine = (await notices([a])).body.data;
+  const ownProfile = (await notices([a])).body.profiles[0];
+  assert.equal(ownProfile.status, "approved");
+  assert.equal(ownProfile.member.name, "Người A");
+  assert.ok(ownProfile.member.id);
+  assert.ok(ownProfile.member.joinedAt);
+  assert.equal(ownProfile.member.status, "active");
+  assert.doesNotMatch(
+    JSON.stringify(ownProfile),
+    /notificationTokenHash|reviewedBy|zaloUserId/,
+  );
+  await app.locals.models.members.updateOne(
+    { _id: ownProfile.member.id },
+    { $set: { company: "Thông tin hệ thống đã sửa" } },
+  );
+  assert.equal(
+    (await notices([a])).body.profiles[0].member.company,
+    "Thông tin hệ thống đã sửa",
+  );
   assert.equal(mine.length, 2);
   assert.equal(new Set(mine.map((n) => n.id)).size, 2);
   assert.ok(
@@ -105,6 +128,11 @@ test("submission notifies admins; approval/rejection reach only the correspondin
       n.description.includes("Cần bổ sung giấy tờ"),
     ),
   );
+  assert.equal(
+    (await notices([b])).body.profiles[0].rejectionReason,
+    "Cần bổ sung giấy tờ",
+  );
+  assert.equal((await notices([b])).body.profiles[0].member, null);
   assert.ok(
     !(await notices([a])).body.data.some((n) =>
       n.description.includes("Cần bổ sung giấy tờ"),

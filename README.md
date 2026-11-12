@@ -4,6 +4,8 @@
 
 - `GET /api/v1/admin/registration-inbox?page=1&limit=100`: yêu cầu admin Bearer token, trả thông báo hồ sơ đăng ký và tổng hồ sơ chờ duyệt, có phân trang.
 - `POST /api/v1/public/registration-notifications`: body `{tokens: [<mã theo dõi 64 ký tự hex>]}`, tối đa 20 mã; chỉ trả thông báo cho các hồ sơ sở hữu mã tương ứng. Không có API truy cập kết quả bằng ID Zalo chưa xác minh.
+
+Response kết quả trả thêm `profiles` gồm các trường đăng ký, kết quả/lý do xét duyệt và thông tin hệ thống của hội viên tạo từ đúng hồ sơ đó. Mã theo dõi hợp lệ mới đọc được dữ liệu cá nhân; không trả hash, mã theo dõi, ID Zalo hoặc tài khoản người duyệt. Các trường hội viên được đọc lại từ database nên thay đổi của admin được cập nhật ở trang Cá nhân. Việc xem hồ sơ qua mã theo dõi không tạo quyền đăng nhập hoặc tự liên kết tài khoản Zalo. Lý do từ chối hiện là trường tùy chọn, tối đa 1000 ký tự.
 - `POST /api/v1/public/registrations` nhận thêm `notificationToken` tùy chọn. Mini App sinh mã bằng CSPRNG và lưu trên thiết bị trước khi gửi; backend chỉ lưu SHA-256 trong trường ẩn `notificationTokenHash`. Không trả mã/hash cho admin hay API công khai khác.
 
 Thông báo được suy ra trực tiếp từ bản ghi đăng ký đã commit, gồm sự kiện tiếp nhận và duyệt/từ chối. Approval dùng transaction hiện tại nên lỗi tạo hội viên không sinh thông báo duyệt giả; callback lặp không tạo sự kiện trùng. Các ID sự kiện ổn định để frontend lưu trạng thái đã đọc. Backend không tự gán quyền hội viên cho hồ sơ SDK chưa xác minh.

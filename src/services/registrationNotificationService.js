@@ -36,8 +36,9 @@ const notification = (row, kind) => {
 };
 
 export class RegistrationNotificationService {
-  constructor(registrations) {
+  constructor(registrations, members) {
     this.registrations = registrations;
+    this.members = members;
   }
   async admin(query) {
     const filter = { deletedAt: null };
@@ -66,13 +67,76 @@ export class RegistrationNotificationService {
     };
   }
   async applicant(tokens) {
-    if (!tokens.length) return { data: [] };
+    if (!tokens.length) return { data: [], profiles: [] };
     const hashes = tokens.map((token) =>
       createHash("sha256").update(token).digest("hex"),
     );
     const rows = await this.registrations
       .find({ notificationTokenHash: { $in: hashes }, deletedAt: null })
+      .sort({ createdAt: -1, _id: 1 })
       .lean();
+    const memberIds = rows
+      .filter((row) => row.status === "approved" && row.memberId)
+      .map((row) => row.memberId);
+    const members = memberIds.length
+      ? await this.members
+          .find({ _id: { $in: memberIds }, deletedAt: null })
+          .lean()
+      : [];
+    const fields = [
+      "fullName",
+      "company",
+      "phone",
+      "email",
+      "birthDate",
+      "jobTitle",
+      "companyAddress",
+      "taxCode",
+      "date",
+      "status",
+      "createdAt",
+      "reviewedAt",
+      "rejectionReason",
+    ];
+    const profiles = rows.map((row) => {
+      const member = members.find(
+        (item) =>
+          item._id === row.memberId && item.sourceRegistrationId === row._id,
+      );
+      const memberFields = [
+        "name",
+        "company",
+        "phone",
+        "email",
+        "birthDate",
+        "jobTitle",
+        "companyAddress",
+        "joinedAt",
+        "position",
+        "initials",
+        "isBoard",
+        "status",
+        "updatedAt",
+      ];
+      return {
+        id: row._id,
+        ...Object.fromEntries(
+          fields
+            .filter((key) => row[key] !== undefined)
+            .map((key) => [key, row[key]]),
+        ),
+        member: member
+          ? {
+              id: member._id,
+              ...Object.fromEntries(
+                memberFields
+                  .filter((key) => member[key] !== undefined)
+                  .map((key) => [key, member[key]]),
+              ),
+            }
+          : null,
+      };
+    });
     const data = rows
       .flatMap((row) => [
         notification(row, "submitted"),
@@ -84,6 +148,6 @@ export class RegistrationNotificationService {
         (a, b) =>
           b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
       );
-    return { data };
+    return { data, profiles };
   }
 }
