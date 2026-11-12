@@ -7,6 +7,9 @@ export default async function connectDB(uri) {
   if (servers?.length) setServers(servers);
   const connection = mongoose.createConnection(uri, {
     serverSelectionTimeoutMS: 10000,
+    maxPoolSize: 10,
+    minPoolSize: 0,
+    maxIdleTimeMS: 60000,
   });
   connection.on("disconnected", () =>
     console.warn("[Database] MongoDB disconnected"),

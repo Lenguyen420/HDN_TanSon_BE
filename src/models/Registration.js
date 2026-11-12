@@ -26,7 +26,8 @@ export const RegistrationSchema = new Schema(
   },
   { timestamps: true, collection: "registrations" },
 );
-RegistrationSchema.index({ deletedAt: 1, status: 1, createdAt: -1 });
+RegistrationSchema.index({ deletedAt: 1, createdAt: -1, _id: 1 });
+RegistrationSchema.index({ deletedAt: 1, status: 1, createdAt: -1, _id: 1 });
 RegistrationSchema.index(
   { memberId: 1 },
   { unique: true, partialFilterExpression: { memberId: { $type: "string" } } },

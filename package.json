@@ -10,7 +10,8 @@
     "test": "npm run build && node --test test/*.test.cjs",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
     "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
-    "images:migrate": "node scripts/migrate-images.js"
+    "images:migrate": "node scripts/migrate-images.js",
+    "images:migrate-inline": "node scripts/migrate-inline-images.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

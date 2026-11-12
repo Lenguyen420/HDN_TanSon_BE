@@ -102,14 +102,19 @@ export class ContentService {
       throw new BadRequestError("Không thể đổi mã nội dung.");
     const { id: ignored, ...fields } = dto;
     // Avoid writing a new file for a missing/deleted record.
-    const current = await this.get(id);
+    const current = await this.model
+      .findOne({ _id: id, deletedAt: null })
+      .select("image")
+      .lean();
+    if (!current) throw new NotFoundError("Không tìm thấy nội dung.");
     // Metadata edits keep the existing reference even if legacy storage is
     // unavailable. Only a changed image needs upload validation/preparation.
-    const prepared =
-      fields.image === current.image
-        ? { image: current.image }
-        : await this.imageStorage.prepare(fields.image, this.collection);
-    if (fields.image !== undefined) fields.image = prepared.image;
+    const unchangedImage = fields.image === current.image;
+    const prepared = unchangedImage
+      ? {}
+      : await this.imageStorage.prepare(fields.image, this.collection);
+    if (unchangedImage) delete fields.image;
+    else if (fields.image !== undefined) fields.image = prepared.image;
     try {
       const row = await this.model
         .findOneAndUpdate(

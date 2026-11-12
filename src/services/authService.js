@@ -15,10 +15,10 @@ export class AuthService {
   }
   async initialize() {
     await Promise.all([this.users.init(), this.sessions.init()]);
-    this.dummyHash = await hashPassword(randomBytes(32).toString("hex"));
     const username = this.config.get("ADMIN_USERNAME")?.trim().toLowerCase(),
       password = this.config.get("ADMIN_PASSWORD");
     if (!username || !password) return;
+    if (await this.users.exists({ username })) return;
     if (password.length < 12)
       throw Error("ADMIN_PASSWORD cần ít nhất 12 ký tự.");
     await this.users.updateOne(
@@ -43,7 +43,10 @@ export class AuthService {
       .lean();
     const valid = await verifyPassword(
       password,
-      user?.passwordHash || this.dummyHash,
+      user?.passwordHash ||
+        (await (this.dummyHash ??= hashPassword(
+          randomBytes(32).toString("hex"),
+        ))),
     );
     if (!user || !user.active || !valid)
       throw new UnauthorizedError("Tên đăng nhập hoặc mật khẩu không đúng.");

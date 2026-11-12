@@ -81,9 +81,11 @@ export async function createApp({
         connection,
       ),
     };
-    await models.zaloUsers.init();
-    await services.auth.initialize();
-    await services.registrations.initialize();
+    await Promise.all([
+      models.zaloUsers.init(),
+      services.auth.initialize(),
+      services.registrations.initialize(),
+    ]);
     const app = express();
     app.disable("x-powered-by");
     app.locals.db = connection;

@@ -76,15 +76,18 @@ export default function createContentModels(connection) {
           versionKey: false,
         },
       );
-      schema.index({
-        deletedAt: 1,
-        status: 1,
-        ...(key === "banners"
-          ? { order: 1 }
-          : key === "notifications"
-            ? { date: -1 }
-            : { publishedAt: -1 }),
-      });
+      const sort =
+        key === "banners"
+          ? { order: 1, createdAt: -1, _id: 1 }
+          : key === "events"
+            ? { "event.date": -1, createdAt: -1, _id: 1 }
+            : key === "member-visits"
+              ? { "visit.date": -1, createdAt: -1, _id: 1 }
+              : key === "notifications"
+                ? { date: -1, time: -1, createdAt: -1, _id: 1 }
+                : { publishedAt: -1, createdAt: -1, _id: 1 };
+      schema.index({ deletedAt: 1, ...sort });
+      schema.index({ deletedAt: 1, status: 1, ...sort });
       return [key, connection.model(`Content_${key}`, schema)];
     }),
   );

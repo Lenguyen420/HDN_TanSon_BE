@@ -369,3 +369,16 @@ Kiểm thử tại `test/settings.test.cjs` dùng MongoDB tạm, bao gồm quy�
 ## Mini App xem công khai
 
 Mini App mở các màn hình mà không yêu cầu xác thực Zalo. `GET /api/v1/public/members` cung cấp danh bạ hội viên đang hoạt động, hỗ trợ tìm kiếm/phân trang như danh bạ cũ; chỉ trả tên, doanh nghiệp, chức danh và vai trò. Không trả số điện thoại, email, ngày sinh hoặc liên kết Zalo. Các API quản trị và API hồ sơ cá nhân vẫn giữ xác thực.
+
+
+## Tối ưu tải và ghi dữ liệu
+
+vercel.json đặt region sin1 (Singapore) cùng vùng GCP Atlas hiện tại. Cần redeploy để áp dụng; nếu đổi vùng database phải kiểm tra lại cấu hình region. Pool giới hạn 10 kết nối mỗi instance, minPoolSize 0 và thu hồi kết nối nhàn sau 60 giây. Init các nhóm model chạy song song; tài khoản quản trị có sẵn không bị upsert/hash lại lúc cold start. Hash giả chống dò tài khoản chỉ được tạo khi cần kiểm tra đăng nhập sai, vẫn giữ bcrypt cost 12. Session và trạng thái tài khoản vẫn kiểm tra từ database mỗi request.
+
+Các index danh sách khớp trường sort thực tế (gồm _id để thứ tự ổn định). Sửa nội dung chỉ đọc ảnh trước khi cập nhật, không gửi lại ảnh cũ trong $set nếu ảnh không đổi.
+
+### Ảnh base64 cũ
+
+Chạy `npm run images:migrate-inline` để đếm, không thay đổi database. Chạy `npm run images:migrate-inline -- --apply --verify-origin https://behdntanson.vercel.app` để chuyển sang GridFS. Công cụ lưu backup trong .reference/inline-image-backups, xác minh ảnh truy cập được trước khi đổi reference và dùng so sánh giá trị ảnh cũ để giữ chỉnh sửa đồng thời. Không đổi id, nội dung bài hoặc updatedAt. Backup có cả giá trị gốc và đường dẫn thay thế.
+
+Ngày 12/11/2026 đã chuyển 1 ảnh theo xác nhận của chủ dự án; JSON /public/news giảm từ 196.874 xuống 473 byte. Backup: .reference/inline-image-backups/8ea60fc7-89b4-4227-8698-9adac168f98d.json.
