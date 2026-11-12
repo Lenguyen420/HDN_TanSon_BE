@@ -2,6 +2,7 @@ import eventAttendanceRouter from "./eventAttendanceRouter.js";
 import { membersQuery } from "../dto/member.dto.js";
 import { validateQuery } from "../middlewares/validateRequest.js";
 import { Router } from "express";
+import eventFileRouter from "./eventFileRouter.js";
 import authRouter from "./authRouter.js";
 import zaloOAuthRouter from "./zaloOAuthRouter.js";
 import zaloSdkProfileRouter from "./zaloSdkProfileRouter.js";
@@ -17,6 +18,7 @@ import { contentDefinitions } from "../dto/content.dto.js";
 import settingsRouter from "./settingsRouter.js";
 export default function appRouter(services) {
   const router = Router();
+  router.use(eventFileRouter(services));
   router.get("/health", healthController);
   router.use(eventAttendanceRouter(services));
   router.use(registrationNotificationRouter(services));

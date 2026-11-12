@@ -25,6 +25,8 @@ const eventFile = z.strictObject({
   id: idSchema,
   title: text(300).min(1),
   url: text(2048).refine((value) => {
+    if (/^\/api\/v1\/public\/event-files\/[a-f0-9-]{36}$/.test(value))
+      return true;
     try {
       const url = new URL(value);
       return url.protocol === "https:" && !url.username && !url.password;

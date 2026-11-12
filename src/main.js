@@ -1,6 +1,7 @@
 import createEventAttendanceModel from "./models/EventAttendance.js";
 import { EventAttendanceService } from "./services/eventAttendanceService.js";
 import mongoose from "mongoose";
+import { EventFileService } from "./services/eventFileService.js";
 import express from "express";
 import cors from "cors";
 import { corsOptions } from "./config/cors.js";
@@ -62,6 +63,11 @@ export async function createApp({
       settings: createSettingsModel(connection),
     };
     const services = {
+      eventFiles: new EventFileService(
+        new mongoose.mongo.GridFSBucket(connection.db, {
+          bucketName: "event_files",
+        }),
+      ),
       auth: new AuthService(
         models.admins,
         models.sessions,

@@ -513,3 +513,10 @@ Thêm/sửa qua API quản trị events hiện có (JWT quản trị), không c�
 Điểm danh chỉ tiếp nhận khi sự kiện đã công bố, chưa xóa, event.checkInEnabled=true và event.date là hôm nay theo Asia/Ho_Chi_Minh. Bấm gửi lại cùng mã không sinh bản ghi trùng. Một người đổi thiết bị/xóa bộ nhớ có thể có mã khác; đây chưa phải cơ chế xác minh danh tính. Tắt điểm danh vẫn cho đọc phiếu cũ và gửi lại yêu cầu đã thành công để phục hồi khi mất kết nối.
 
 Deploy backend trước frontend. Dữ liệu được lưu trong collection event_attendance. Việc mở PDF trong webview Zalo cần kiểm tra trên Android/iOS theo header của dịch vụ lưu trữ; tài liệu có trang xem trực tuyến có thể dùng URL trang xem đó.
+
+
+## Tài liệu và biên bản sự kiện
+
+POST /api/v1/admin/event-files cần token quản trị, body binary application/octet-stream và header X-File-Name là encodeURIComponent(tên file). Chấp nhận PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, JPG/PNG/WebP tối đa 4 MiB; kiểm tra signature theo phần mở rộng. Lưu trong GridFS bucket event_files, trả url /api/v1/public/event-files/:id; GET/HEAD URL này đọc nội dung gốc và tên file. Tài liệu/biên bản là file công khai được truy cập qua liên kết, không lưu trên ổ đĩa tạm Vercel. Chỉ tài khoản quản trị được tải lên. Các file cũ vẫn giữ khi sửa sự kiện.
+
+Trong event, documents và minutes đều optional; có thể lưu sự kiện trước và cập nhật sau. Schema chấp nhận URL HTTPS cũ hoặc đường dẫn managed /api/v1/public/event-files/:uuid. Không tạo thêm Vercel Function riêng, dùng Express router hiện tại.
