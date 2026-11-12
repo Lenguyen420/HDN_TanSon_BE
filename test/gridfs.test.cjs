@@ -23,7 +23,8 @@ test("Vercel images persist in MongoDB across app restarts and failed content wr
     });
     const directory = join(tmpdir(), "gridfs-no-disk-" + randomUUID());
     app = await createApp({ uploadDirectory: directory });
-    const bytes = png(2, 2);
+    // Large enough to need several chunks with GridFS's default chunk size.
+    const bytes = png(512, 512);
     const dto = {
       id: "persistent-banner",
       image: "data:image/png;base64," + bytes.toString("base64"),
@@ -39,6 +40,16 @@ test("Vercel images persist in MongoDB across app restarts and failed content wr
     const count = () =>
       app.locals.db.db.collection("images.files").countDocuments();
     assert.equal(await count(), 1);
+    const storedImage = await app.locals.db.db
+      .collection("images.files")
+      .findOne({ filename: image });
+    assert.equal(
+      await app.locals.db.db.collection("images.chunks").countDocuments({
+        files_id: storedImage._id,
+      }),
+      1,
+      "a resized image should be stored in one chunk",
+    );
     await assert.rejects(service.create(dto));
     assert.equal(
       await count(),

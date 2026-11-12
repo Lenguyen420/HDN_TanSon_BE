@@ -86,7 +86,11 @@ export class ImageStorage {
     const filename = `${randomUUID()}.${extension}`;
     const imagePath = `uploads/${folder}/${filename}`;
     if (this.bucket) {
-      const upload = this.bucket.openUploadStream(imagePath);
+      // Resized form images fit in one chunk instead of several default 255 KiB
+      // chunks. Existing files retain their own GridFS chunk size when read.
+      const upload = this.bucket.openUploadStream(imagePath, {
+        chunkSizeBytes: 2 * 1024 * 1024,
+      });
       try {
         await pipeline(Readable.from([bytes]), upload);
       } catch (error) {
