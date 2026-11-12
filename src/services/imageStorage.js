@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,13 +14,14 @@ export const uploadedImagePattern =
   /^uploads\/(news|events|member-visits|banners)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
 
 export class ImageStorage {
-  constructor(directory = defaultUploadDirectory) {
+  constructor(directory = defaultUploadDirectory, bucket = null) {
     this.directory = directory;
+    this.bucket = bucket;
   }
 
   async initialize() {
     // Vercel has no persistent writable uploads directory.
-    if (process.env.VERCEL === "1") return;
+    if (this.bucket || process.env.VERCEL === "1") return;
     await Promise.all(
       imageFolders.map((folder) =>
         mkdir(path.join(this.directory, folder), { recursive: true }),
@@ -27,7 +30,11 @@ export class ImageStorage {
   }
 
   async prepare(image, folder) {
-    if (process.env.VERCEL === "1" && image?.startsWith("data:"))
+    if (
+      process.env.VERCEL === "1" &&
+      !this.bucket &&
+      image?.startsWith("data:")
+    )
       throw new BadRequestError(
         "Tải ảnh lên ổ đĩa không được hỗ trợ trên Vercel. Hãy dùng URL ảnh HTTP(S) từ dịch vụ lưu trữ.",
       );
@@ -36,7 +43,17 @@ export class ImageStorage {
         if (!uploadedImagePattern.test(image))
           throw new BadRequestError("Đường dẫn ảnh không hợp lệ.");
         try {
-          await access(path.join(this.directory, ...image.split("/").slice(1)));
+          if (this.bucket) {
+            const stored = await this.bucket
+              .find({ filename: image })
+              .limit(1)
+              .next();
+            if (!stored) throw new Error("Missing image");
+          } else {
+            await access(
+              path.join(this.directory, ...image.split("/").slice(1)),
+            );
+          }
         } catch {
           throw new BadRequestError("Ảnh tải lên không còn tồn tại.");
         }
@@ -67,12 +84,61 @@ export class ImageStorage {
       );
     const extension = match[1] === "jpeg" ? "jpg" : match[1];
     const filename = `${randomUUID()}.${extension}`;
+    const imagePath = `uploads/${folder}/${filename}`;
+    if (this.bucket) {
+      const upload = this.bucket.openUploadStream(imagePath);
+      try {
+        await pipeline(Readable.from([bytes]), upload);
+      } catch (error) {
+        await upload.abort().catch(() => {});
+        throw error;
+      }
+      return { image: imagePath, gridFsId: upload.id };
+    }
     const file = path.join(this.directory, folder, filename);
     await writeFile(file, bytes, { flag: "wx" });
     return { image: `uploads/${folder}/${filename}`, file };
   }
 
+  middleware() {
+    return async (req, res, next) => {
+      if (!this.bucket) return next();
+      const image = "uploads" + req.path;
+      if (
+        !["GET", "HEAD"].includes(req.method) ||
+        !uploadedImagePattern.test(image)
+      )
+        return res.status(404).end();
+      try {
+        const file = await this.bucket
+          .find({ filename: image })
+          .limit(1)
+          .next();
+        if (!file) return res.status(404).end();
+        const extension = image.split(".").pop();
+        res.set({
+          "Content-Type":
+            extension === "jpg" ? "image/jpeg" : "image/" + extension,
+          "Content-Length": String(file.length),
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cross-Origin-Resource-Policy": "cross-origin",
+        });
+        if (req.method === "HEAD") return res.end();
+        await pipeline(this.bucket.openDownloadStream(file._id), res);
+      } catch (error) {
+        if (res.headersSent) res.destroy();
+        else next(error);
+      }
+    };
+  }
+
   async discard(prepared) {
+    if (prepared.gridFsId && this.bucket)
+      await this.bucket.delete(prepared.gridFsId).catch(() => {
+        console.error(
+          "[Uploads] Không dọn được ảnh MongoDB của yêu cầu thất bại.",
+        );
+      });
     if (prepared.file)
       await unlink(prepared.file).catch((error) => {
         if (error.code !== "ENOENT")

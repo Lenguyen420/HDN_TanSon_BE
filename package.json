@@ -9,7 +9,8 @@
     "build": "node scripts/check.cjs",
     "test": "npm run build && node --test test/*.test.cjs",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\""
+    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
+    "images:migrate": "node scripts/migrate-images.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -31,7 +31,7 @@ Trong Vercel Project → Settings → Build and Deployment:
 
 Các cảnh báo `npm fund`, `cache-dir` và install scripts trong log không phải nguyên nhân của `STATIC_BUILD_NO_OUT_DIR`. Nếu có lỗi bcrypt khi chạy thật, xem lại quyền chạy install script của `bcrypt`; `mongodb-memory-server` chỉ dùng khi kiểm thử.
 
-**Giới hạn ảnh:** Vercel không hỗ trợ lưu ảnh bền vững trong thư mục `uploads` của function, và Express preset không phục vụ `express.static()`. Khi `VERCEL=1`, backend bỏ qua tạo thư mục uploads và từ chối tải ảnh base64 bằng HTTP 400 để tránh ghi ảnh tạm rồi mất dữ liệu. Dùng URL HTTP(S) cho ảnh từ dịch vụ lưu trữ; ảnh `uploads/...` cũ cần được chuyển sang dịch vụ lưu trữ và cập nhật URL trước khi sử dụng trên Vercel. Luồng chọn ảnh hiện tại của dashboard cần tích hợp lưu trữ ngoài nếu muốn tiếp tục tải ảnh. Máy chủ thông thường vẫn lưu/đọc uploads như cũ.
+**Lưu ảnh trên Vercel:** Backend tự lưu ảnh mới trong MongoDB GridFS (bucket `images`), dùng chung `MONGODB_URI`. API `/uploads/{folder}/{filename}` đọc ảnh từ MongoDB, giữ nguyên đường dẫn trong nội dung. Không cần khóa dịch vụ lưu trữ ngoài. Local mặc định dùng ổ đĩa; đặt `IMAGE_STORAGE=mongodb` để dùng GridFS khi chạy local.
 
 ## Cấu trúc
 
@@ -356,3 +356,12 @@ Khi chưa lưu lần đầu, GET trả tên Hội và khẩu hiệu mặc địn
 Frontend dùng `api/settingsApi.ts` và route `/api/association/settings` (GET, PUT), token nằm trong cookie HttpOnly. Form khóa thao tác khi đang lưu, hiển thị lỗi API và tải lại dữ liệu sau lưu thành công. Hook dữ liệu và bản xuất JSON sử dụng thông tin Hội lấy từ API. Cấu hình cũ trong localStorage không tự chuyển hoặc dùng thay thế khi API lỗi; không ghi đè dữ liệu MongoDB bằng dữ liệu trình duyệt. Mini App chưa được sửa, có thể nối `GET /api/v1/public/settings` để lấy cấu hình.
 
 Kiểm thử tại `test/settings.test.cjs` dùng MongoDB tạm, bao gồm quyền truy cập, cấu hình mặc định, lưu đồng thời, lưu/xóa giá trị tùy chọn, kiểm tra dữ liệu, bảo vệ trường hệ thống và đọc lại sau khi khởi động lại app. Luồng cookie qua Next.js được kiểm tra tùy chọn trong `test/api.test.cjs` cùng các module khác.
+
+## Chuyển ảnh local cũ lên Vercel
+
+1. Kiểm tra `MONGODB_URI` trong môi trường chạy lệnh trỏ đúng database backend Vercel.
+2. Chạy `npm run images:migrate` để xem số ảnh, chưa ghi database.
+3. Chạy `npm run images:migrate -- --apply` để sao chép ảnh sang GridFS. Lệnh giữ nguyên file local và đường dẫn trong nội dung, bỏ qua ảnh đã có giống hệt; dừng nếu cùng đường dẫn nhưng khác nội dung. Không chạy đồng thời nhiều lần migration.
+4. Deploy backend rồi kiểm tra URL `/uploads/banners/...` trả ảnh. Không cần sửa frontend hoặc trang quản trị.
+
+Ảnh dùng dung lượng MongoDB và được sao lưu cùng database. Không tự xóa ảnh cũ khi sửa/xóa mềm nội dung; ảnh mới được dọn nếu lưu nội dung thất bại.

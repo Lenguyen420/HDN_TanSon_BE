@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -33,7 +34,12 @@ export async function createApp({
   const config = loadEnvironment();
   const connection = await connectDB(config.get("MONGODB_URI"));
   try {
-    const imageStorage = new ImageStorage(uploadDirectory);
+    const useMongoImages =
+      process.env.IMAGE_STORAGE === "mongodb" || process.env.VERCEL === "1";
+    const bucket = useMongoImages
+      ? new mongoose.mongo.GridFSBucket(connection.db, { bucketName: "images" })
+      : null;
+    const imageStorage = new ImageStorage(uploadDirectory, bucket);
     await imageStorage.initialize();
     const models = {
       admins: createAdminModel(connection),
@@ -85,6 +91,15 @@ export async function createApp({
     app.locals.services = services;
     app.use(helmet());
     app.use(
+      cors({
+        origin: (config.get("CORS_ORIGINS") || "http://localhost:3003")
+          .split(",")
+          .map((x) => x.trim()),
+        credentials: true,
+      }),
+    );
+    app.use("/uploads", imageStorage.middleware());
+    app.use(
       "/uploads",
       express.static(uploadDirectory, {
         dotfiles: "deny",
@@ -93,14 +108,6 @@ export async function createApp({
         immutable: true,
         setHeaders: (res) =>
           res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
-      }),
-    );
-    app.use(
-      cors({
-        origin: (config.get("CORS_ORIGINS") || "http://localhost:3003")
-          .split(",")
-          .map((x) => x.trim()),
-        credentials: true,
       }),
     );
     // Content forms include a resized image up to 1.4 MB as a data URL.
