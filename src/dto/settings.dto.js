@@ -5,6 +5,7 @@ export const defaultSettings = Object.freeze({
   name: "Hội Doanh nghiệp Phường Tân Sơn",
   slogan: "Trách nhiệm - Sẵn sàng - Vươn mình",
   introduction: "",
+  introductionVideoUrl: "",
   mission: "",
   department: "",
   address: "",
@@ -21,6 +22,17 @@ export const settingsSchema = z.strictObject({
   name: text(250).min(1),
   slogan: text(500).min(1),
   introduction: text(20_000).default(""),
+  introductionVideoUrl: text(2048)
+    .refine((value) => {
+      if (!value) return true;
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && !url.username && !url.password;
+      } catch {
+        return false;
+      }
+    }, "Video giới thiệu cần URL HTTPS hợp lệ.")
+    .optional(),
   mission: text(20_000).default(""),
   department: text(250).default(""),
   address: text(1000).default(""),

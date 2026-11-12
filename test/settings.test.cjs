@@ -201,3 +201,89 @@ test("PUT xóa được trường tùy chọn và dữ liệu còn nguyên sau k
   );
   assert.equal(await app.locals.models.settings.countDocuments(), 1);
 });
+
+test("introduction video URL persists in MongoDB, survives old admin saves and can be cleared", async () => {
+  const url = "https://cdn.example.com/gioi-thieu.mp4";
+  assert.equal(
+    (
+      await request(
+        "/admin/settings",
+        "PUT",
+        { ...values, introductionVideoUrl: url },
+        null,
+      )
+    ).status,
+    401,
+  );
+  const saved = await request("/admin/settings", "PUT", {
+    ...values,
+    introductionVideoUrl: url,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.data.introductionVideoUrl, url);
+  assert.equal(
+    (await app.locals.models.settings.findById("association").lean())
+      .introductionVideoUrl,
+    url,
+  );
+  await runtime.closeApp(app, server);
+  app = server = undefined;
+  await start();
+  assert.equal(
+    (await request("/public/settings", "GET", undefined, null)).body.data
+      .introductionVideoUrl,
+    url,
+  );
+  assert.equal(
+    (await request("/admin/settings", "PUT", values)).body.data
+      .introductionVideoUrl,
+    url,
+    "older forms must retain video",
+  );
+  for (const invalid of [
+    "javascript:alert(1)",
+    "data:video/mp4;base64,AAAA",
+    "http://example.com/intro.mp4",
+    "https://user:secret@example.com/video.mp4",
+    "/video.mp4",
+    "x".repeat(2049),
+  ]) {
+    assert.equal(
+      (
+        await request("/admin/settings", "PUT", {
+          ...values,
+          introductionVideoUrl: invalid,
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (await request("/public/settings", "GET", undefined, null)).body.data
+        .introductionVideoUrl,
+      url,
+    );
+  }
+  assert.equal(
+    (
+      await request("/admin/settings", "PUT", {
+        ...values,
+        introductionVideoUrl: "https://youtu.be/M7lc1UVf-VE",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request("/admin/settings", "PUT", {
+        ...values,
+        introductionVideoUrl: "",
+      })
+    ).body.data.introductionVideoUrl,
+    "",
+  );
+  assert.equal(
+    (await request("/public/settings", "GET", undefined, null)).body.data
+      .introductionVideoUrl,
+    "",
+  );
+});

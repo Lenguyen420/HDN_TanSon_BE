@@ -530,3 +530,7 @@ POST /api/v1/public/event-updates nhận {tokens:[{eventId,token}]} tối đa 10
 GET /api/v1/admin/event-inbox (JWT admin) trả thông báo vắng mặt có phân trang. Chỉ người có registeredAt nhưng chưa checkedAt sau giờ kết thúc được báo vắng. Khách chỉ điểm danh không được tính vào nhóm đã đăng ký vắng mặt. GET /admin/events/:id/attendance trả cả người đăng ký, đã điểm danh và vắng mặt. Không cho điểm danh mới sau giờ kết thúc khi có khung giờ đầy đủ; gửi lại yêu cầu điểm danh đã thành công vẫn trả phiếu cũ.
 
 Đây là thông báo trong Mini App/dashboard, không phải push Zalo. Thời điểm được tính trên server tại mỗi lần đọc API từ lịch sự kiện hiện tại: đóng ứng dụng hoặc backend khởi động lại không làm mất mốc nhắc. Không cần cron, OA token hay template Zalo. Không sửa dữ liệu giờ của người dùng để kiểm thử; bài test dùng clock riêng với MongoDB thử nghiệm. Deploy backend trước dashboard rồi Mini App.
+
+## Video giới thiệu Hội
+
+Cấu hình introductionVideoUrl trong /admin/settings, lưu tại collection association_settings. Chỉ admin được sửa, /public/settings trả URL cho Mini App. Chấp nhận URL HTTPS (video trực tiếp MP4/WebM hoặc link YouTube); để rỗng để ẩn video. Không lưu file video hoặc base64 trong gói Mini App. Bản admin cũ gửi thiếu trường này giữ nguyên URL đã lưu.
