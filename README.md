@@ -18,6 +18,21 @@ Backend mặc định chạy ở http://127.0.0.1:4000/api/v1. GET /api/v1/healt
 
 Lần chạy đầu tạo tài khoản quản trị nếu username chưa có. Việc đổi ADMIN_PASSWORD trong .env không đặt lại mật khẩu tài khoản đã tồn tại. Không có API đăng ký quản trị công khai. JavaScript chạy trực tiếp. npm run build kiểm tra cú pháp; production chạy npm start; cấu hình database và JWT_SECRET riêng theo môi trường.
 
+## Deploy backend lên Vercel
+
+`vercel.json` chọn framework Express, giữ bước kiểm tra cú pháp và để Vercel tự xác định output. `src/index.js` export Express app cho Vercel; MongoDB chỉ kết nối khi có request đầu tiên, dùng lại app/kết nối cho các request tiếp theo trong cùng instance. `npm start` vẫn dùng `src/main.js` khi chạy máy chủ thông thường.
+
+Trong Vercel Project → Settings → Build and Deployment:
+
+1. Root Directory phải trỏ tới thư mục chứa `package.json` và `vercel.json` của backend này.
+2. Chọn Framework Preset **Express**; tắt override Output Directory đang đặt `public`. Không tạo `public` hoặc đổi output thành `dist`: backend không sinh website tĩnh.
+3. Thêm Environment Variables theo `.env.example`: `MONGODB_URI`, `JWT_SECRET` (ít nhất 32 ký tự), `ADMIN_USERNAME`, `ADMIN_PASSWORD` (ít nhất 12 ký tự), `ADMIN_NAME`, `CORS_ORIGINS` (origin frontend thật). Thêm `ZALO_APP_SECRET` nếu dùng xác thực Mini App. Cấu hình Atlas cho phép backend kết nối.
+4. Push mã nguồn đã sửa và Redeploy. Kiểm tra `https://<backend-domain>/api/v1/health`. Đường dẫn `/` trả 404 vì không có API tại đó. Đặt `ASSOCIATION_API_URL=https://<backend-domain>/api/v1` trên frontend rồi redeploy frontend.
+
+Các cảnh báo `npm fund`, `cache-dir` và install scripts trong log không phải nguyên nhân của `STATIC_BUILD_NO_OUT_DIR`. Nếu có lỗi bcrypt khi chạy thật, xem lại quyền chạy install script của `bcrypt`; `mongodb-memory-server` chỉ dùng khi kiểm thử.
+
+**Giới hạn ảnh:** Vercel không hỗ trợ lưu ảnh bền vững trong thư mục `uploads` của function, và Express preset không phục vụ `express.static()`. Khi `VERCEL=1`, backend bỏ qua tạo thư mục uploads và từ chối tải ảnh base64 bằng HTTP 400 để tránh ghi ảnh tạm rồi mất dữ liệu. Dùng URL HTTP(S) cho ảnh từ dịch vụ lưu trữ; ảnh `uploads/...` cũ cần được chuyển sang dịch vụ lưu trữ và cập nhật URL trước khi sử dụng trên Vercel. Luồng chọn ảnh hiện tại của dashboard cần tích hợp lưu trữ ngoài nếu muốn tiếp tục tải ảnh. Máy chủ thông thường vẫn lưu/đọc uploads như cũ.
+
 ## Cấu trúc
 
 Giữ các thư mục trong src như trước, chuyển toàn bộ mã thực thi sang JavaScript ES Modules:

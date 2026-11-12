@@ -17,6 +17,8 @@ export class ImageStorage {
   }
 
   async initialize() {
+    // Vercel has no persistent writable uploads directory.
+    if (process.env.VERCEL === "1") return;
     await Promise.all(
       imageFolders.map((folder) =>
         mkdir(path.join(this.directory, folder), { recursive: true }),
@@ -25,6 +27,10 @@ export class ImageStorage {
   }
 
   async prepare(image, folder) {
+    if (process.env.VERCEL === "1" && image?.startsWith("data:"))
+      throw new BadRequestError(
+        "Tải ảnh lên ổ đĩa không được hỗ trợ trên Vercel. Hãy dùng URL ảnh HTTP(S) từ dịch vụ lưu trữ.",
+      );
     if (!image || !image.startsWith("data:")) {
       if (image?.startsWith("uploads/")) {
         if (!uploadedImagePattern.test(image))
