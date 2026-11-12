@@ -3,6 +3,8 @@ import { z } from "zod";
 import authAdmin from "../middlewares/authAdmin.js";
 import { validateBody, validateQuery } from "../middlewares/validateRequest.js";
 import { baseQuery } from "../dto/member.dto.js";
+import { selfProfileSchema } from "../dto/registration.dto.js";
+import { idSchema } from "../dto/member.dto.js";
 import { createRateLimiter } from "../middlewares/rateLimit.js";
 
 export default function registrationNotificationRouter(services) {
@@ -32,6 +34,17 @@ export default function registrationNotificationRouter(services) {
       res.json(
         await services.registrationNotifications.applicant(req.body.tokens),
       ),
+  );
+  router.put(
+    "/public/registration-profile/:id",
+    createRateLimiter(10),
+    validateBody(selfProfileSchema),
+    async (req, res) => {
+      const id = idSchema.parse(req.params.id);
+      res.json(
+        await services.registrationNotifications.updateProfile(id, req.body),
+      );
+    },
   );
   return router;
 }

@@ -178,3 +178,77 @@ test("failed approval transaction produces no phantom success notification", asy
   assert.notEqual(row.notificationTokenHash, token);
   assert.equal(row.status, "pending");
 });
+
+test("receipt owner edits personal information atomically without changing membership privileges", async () => {
+  const token = secret();
+  const sent = await submit(token, "Người D");
+  const id = sent.body.data.id;
+  const path = `/public/registration-profile/${id}`;
+  const fields = {
+    tokens: [token],
+    fullName: "Tên cập nhật",
+    company: "Công ty mới",
+    phone: "0900000002",
+    email: "new@example.com",
+    birthDate: "1990-01-01",
+    jobTitle: "Giám đốc",
+    companyAddress: "Tân Sơn",
+    taxCode: "123456",
+  };
+  const pending = await request(path, "PUT", fields);
+  assert.equal(pending.status, 200);
+  assert.equal(pending.body.profiles[0].fullName, fields.fullName);
+  assert.equal(pending.body.profiles[0].status, "pending");
+  assert.equal(
+    (await request(path, "PUT", { ...fields, tokens: [secret()] })).status,
+    404,
+  );
+  for (const extra of [
+    { status: "approved" },
+    { isBoard: true },
+    { memberId: "another-member" },
+  ])
+    assert.equal(
+      (await request(path, "PUT", { ...fields, ...extra })).status,
+      400,
+    );
+  assert.equal(
+    (await request(`/admin/registrations/${id}/approve`, "POST", {}, admin))
+      .status,
+    200,
+  );
+  const saved = await request(path, "PUT", {
+    ...fields,
+    fullName: "Tên hội viên mới",
+    email: "",
+    taxCode: "654321",
+  });
+  assert.equal(saved.status, 200);
+  const profile = saved.body.profiles[0];
+  assert.equal(profile.member.name, "Tên hội viên mới");
+  assert.equal(profile.member.email, "");
+  assert.equal(profile.taxCode, "654321");
+  assert.equal(profile.member.isBoard, false);
+  assert.equal(profile.member.position, "Hội viên");
+  const original = app.locals.models.members.findOneAndUpdate;
+  try {
+    app.locals.models.members.findOneAndUpdate = () => {
+      throw Error("Simulated update failure");
+    };
+    assert.equal(
+      (await request(path, "PUT", { ...fields, fullName: "Must roll back" }))
+        .status,
+      500,
+    );
+  } finally {
+    app.locals.models.members.findOneAndUpdate = original;
+  }
+  assert.equal(
+    (await app.locals.models.registrations.findById(id).lean()).fullName,
+    "Tên hội viên mới",
+  );
+  assert.equal(
+    (await app.locals.models.members.findById(profile.member.id).lean()).name,
+    "Tên hội viên mới",
+  );
+});

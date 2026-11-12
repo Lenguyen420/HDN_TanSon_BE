@@ -26,6 +26,20 @@ export const publicRegistrationSchema = z.strictObject({
     .regex(/^[a-f0-9]{64}$/)
     .optional(),
 });
+export const selfProfileSchema = z.strictObject({
+  fullName: fields.fullName,
+  company: fields.company,
+  phone: fields.phone,
+  email: fields.email,
+  birthDate: fields.birthDate,
+  jobTitle: fields.jobTitle,
+  companyAddress: fields.companyAddress,
+  taxCode: fields.taxCode,
+  tokens: z
+    .array(z.string().regex(/^[a-f0-9]{64}$/))
+    .min(1)
+    .max(20),
+});
 export const registrationSchema = z.strictObject({
   ...fields,
   id: idSchema.optional(),

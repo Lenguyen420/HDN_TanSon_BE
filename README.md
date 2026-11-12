@@ -1,5 +1,11 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Tự cập nhật hồ sơ cá nhân
+
+`PUT /api/v1/public/registration-profile/:id` nhận body gồm `tokens` (mã theo dõi trên thiết bị, tối đa 20) và các trường `fullName`, `company`, `phone`, `email`, `birthDate`, `jobTitle`, `companyAddress`, `taxCode`. Chỉ người sở hữu mã theo dõi tương ứng sửa được hồ sơ. Backend từ chối trường ngoài schema, ngày sinh tương lai hoặc mã không khớp.
+
+Nếu hồ sơ đã duyệt, tên/thông tin liên hệ/doanh nghiệp được cập nhật đồng thời vào đúng hội viên tạo từ hồ sơ đó trong transaction. Mã số thuế giữ tại hồ sơ đăng ký. Trạng thái, ngày gia nhập, vai trò, Ban chấp hành và mã hội viên không được sửa bằng API này. Sửa hồ sơ bị từ chối không tự đổi thành pending hoặc approved. Nếu cập nhật hội viên thất bại, thay đổi đăng ký được hoàn tác. API trả lại thông báo và profiles sau khi lưu thành công; Mini App dùng để cập nhật trang Cá nhân ngay.
+
 ## Thông báo xét duyệt đăng ký
 
 - `GET /api/v1/admin/registration-inbox?page=1&limit=100`: yêu cầu admin Bearer token, trả thông báo hồ sơ đăng ký và tổng hồ sơ chờ duyệt, có phân trang.

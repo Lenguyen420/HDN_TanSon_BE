@@ -1,4 +1,9 @@
 import { createHash } from "node:crypto";
+import {
+  BadRequestError,
+  NotFoundError,
+  ConflictError,
+} from "../utils/httpError.js";
 
 const statusText = {
   pending: "Đang chờ xét duyệt",
@@ -149,5 +154,63 @@ export class RegistrationNotificationService {
           b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
       );
     return { data, profiles };
+  }
+  async updateProfile(id, dto) {
+    const { tokens, ...fields } = dto;
+    const today = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Ho_Chi_Minh",
+    });
+    if (fields.birthDate && fields.birthDate > today)
+      throw new BadRequestError("Ngày sinh không được ở tương lai.");
+    const tokenHashes = tokens.map((token) =>
+      createHash("sha256").update(token).digest("hex"),
+    );
+    await this.registrations.db.transaction(async (session) => {
+      const row = await this.registrations
+        .findOneAndUpdate(
+          {
+            _id: id,
+            notificationTokenHash: { $in: tokenHashes },
+            deletedAt: null,
+          },
+          { $set: fields },
+          { new: true, runValidators: true, session },
+        )
+        .lean();
+      if (!row)
+        throw new NotFoundError(
+          "Không tìm thấy hồ sơ hoặc mã theo dõi không hợp lệ.",
+        );
+      if (row.status === "approved") {
+        const { fullName, taxCode, ...memberFields } = fields;
+        const member = await this.members
+          .findOneAndUpdate(
+            {
+              _id: row.memberId,
+              sourceRegistrationId: row._id,
+              deletedAt: null,
+            },
+            {
+              $set: {
+                ...memberFields,
+                name: fullName,
+                initials: fullName
+                  .split(/\s+/)
+                  .slice(-2)
+                  .map((part) => part[0])
+                  .join("")
+                  .toLocaleUpperCase("vi"),
+              },
+            },
+            { new: true, runValidators: true, session },
+          )
+          .lean();
+        if (!member)
+          throw new ConflictError(
+            "Hồ sơ hội viên không còn khả dụng. Vui lòng liên hệ Hội.",
+          );
+      }
+    });
+    return this.applicant(tokens);
   }
 }
