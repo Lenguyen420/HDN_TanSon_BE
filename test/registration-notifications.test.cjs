@@ -252,3 +252,82 @@ test("receipt owner edits personal information atomically without changing membe
     "Tên hội viên mới",
   );
 });
+
+test("registration portrait reaches member directories and legacy portrait sync requires the receipt", async () => {
+  const token = secret();
+  const avatar = "https://example.com/sdk-avatar.jpg";
+  const sent = await request("/public/registrations", "POST", {
+    notificationToken: token,
+    fullName: "Hội viên có ảnh",
+    company: "Doanh nghiệp",
+    phone: "0900000005",
+    avatar,
+  });
+  assert.equal(sent.status, 201);
+  const id = sent.body.data.id;
+  const approval = await request(
+    `/admin/registrations/${id}/approve`,
+    "POST",
+    {},
+    admin,
+  );
+  assert.equal(approval.status, 200);
+  const memberId = approval.body.data.memberId;
+  const publicMembers = await request("/public/members?limit=100");
+  assert.equal(
+    publicMembers.body.data.find((member) => member.id === memberId).avatar,
+    avatar,
+  );
+  await app.locals.models.members.updateOne(
+    { _id: memberId },
+    { $set: { avatar: "", isBoard: true } },
+  );
+  await app.locals.models.registrations.updateOne(
+    { _id: id },
+    { $set: { avatar: "" } },
+  );
+  const endpoint = `/public/registration-avatar/${id}`;
+  assert.equal(
+    (await request(endpoint, "PUT", { tokens: [secret()], avatar })).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request(endpoint, "PUT", {
+        tokens: [token],
+        avatar: "javascript:alert(1)",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request(endpoint, "PUT", { tokens: [token], avatar })).status,
+    200,
+  );
+  assert.equal(
+    (await app.locals.models.members.findById(memberId).lean()).avatar,
+    avatar,
+  );
+  await app.locals.models.members.updateOne(
+    { _id: memberId },
+    { $set: { avatar: "https://example.com/admin-portrait.jpg" } },
+  );
+  assert.equal(
+    (
+      await request(endpoint, "PUT", {
+        tokens: [token],
+        avatar: "https://example.com/new-sdk.jpg",
+      })
+    ).status,
+    200,
+  );
+  const member = await app.locals.models.members.findById(memberId).lean();
+  assert.equal(member.avatar, "https://example.com/admin-portrait.jpg");
+  assert.equal(member.isBoard, true);
+  assert.equal(
+    (await request("/public/members?isBoard=true&limit=100")).body.data.find(
+      (item) => item.id === memberId,
+    ).avatar,
+    member.avatar,
+  );
+});

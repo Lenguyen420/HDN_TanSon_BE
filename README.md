@@ -1,5 +1,11 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Ảnh đại diện Hội viên và Ban chấp hành
+
+Hội viên và hồ sơ đăng ký lưu trường `avatar` (URL HTTP(S) hoặc đường dẫn ảnh `uploads/...`). API danh bạ công khai/riêng trả trường ảnh; admin lưu ảnh qua trường URL ảnh đại diện. Ảnh được Mini App gửi cùng đăng ký từ thông tin SDK đã được người dùng cấp quyền và được sao chép sang hội viên khi duyệt.
+
+`PUT /api/v1/public/registration-avatar/:id`, body `{tokens: [...], avatar: "https://..."}`, đồng bộ ảnh còn trống của hồ sơ đăng ký và hội viên tương ứng bằng mã theo dõi. Không tìm hoặc ghép người theo tên/điện thoại, không cấp quyền Zalo, không ghi đè ảnh đã có. Mini App thử đồng bộ khi cả hồ sơ theo dõi và ảnh SDK đã tải xong. Hồ sơ cũ không có ảnh hoặc mã theo dõi phải được admin bổ sung URL ảnh. Không nhận base64 trong trường URL này.
+
 ## Tự cập nhật hồ sơ cá nhân
 
 `PUT /api/v1/public/registration-profile/:id` nhận body gồm `tokens` (mã theo dõi trên thiết bị, tối đa 20) và các trường `fullName`, `company`, `phone`, `email`, `birthDate`, `jobTitle`, `companyAddress`, `taxCode`. Chỉ người sở hữu mã theo dõi tương ứng sửa được hồ sơ. Backend từ chối trường ngoài schema, ngày sinh tương lai hoặc mã không khớp.

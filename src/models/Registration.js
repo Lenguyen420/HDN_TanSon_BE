@@ -3,6 +3,7 @@ export const RegistrationSchema = new Schema(
   {
     _id: { type: String, required: true },
     fullName: { type: String, required: true, trim: true },
+    avatar: { type: String, default: "" },
     company: { type: String, required: true, trim: true },
     phone: { type: String, required: true },
     email: String,

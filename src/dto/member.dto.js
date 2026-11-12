@@ -11,9 +11,29 @@ export const dateSchema = z
   );
 export const text = (max) => z.string().trim().max(max);
 export const emailSchema = text(254).regex(/^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+export const avatarSchema = z.union([
+  z.literal(""),
+  z
+    .string()
+    .max(2048)
+    .refine((value) => {
+      if (/^\/?uploads\/[a-z0-9/-]+\.(jpg|png|webp)$/i.test(value)) return true;
+      try {
+        const url = new URL(value);
+        return (
+          ["http:", "https:"].includes(url.protocol) &&
+          !url.username &&
+          !url.password
+        );
+      } catch {
+        return false;
+      }
+    }, "URL ảnh đại diện không hợp lệ."),
+]);
 export const memberSchema = z.strictObject({
   id: idSchema.optional(),
   name: text(150).min(1),
+  avatar: avatarSchema.optional(),
   zaloUserId: z
     .string()
     .trim()

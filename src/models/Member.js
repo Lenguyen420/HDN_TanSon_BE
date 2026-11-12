@@ -5,6 +5,7 @@ export const MemberSchema = new Schema(
     sourceRegistrationId: String,
     zaloUserId: { type: String, default: null },
     name: { type: String, required: true, trim: true },
+    avatar: { type: String, default: "" },
     company: { type: String, required: true, trim: true },
     phone: String,
     email: String,

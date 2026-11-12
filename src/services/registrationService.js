@@ -141,6 +141,7 @@ export class RegistrationService {
             _id: memberId,
             sourceRegistrationId: id,
             name: registration.fullName,
+            avatar: registration.avatar || "",
             company: registration.company,
             phone: registration.phone,
             email: registration.email,

@@ -4,7 +4,7 @@ import authAdmin from "../middlewares/authAdmin.js";
 import { validateBody, validateQuery } from "../middlewares/validateRequest.js";
 import { baseQuery } from "../dto/member.dto.js";
 import { selfProfileSchema } from "../dto/registration.dto.js";
-import { idSchema } from "../dto/member.dto.js";
+import { idSchema, avatarSchema } from "../dto/member.dto.js";
 import { createRateLimiter } from "../middlewares/rateLimit.js";
 
 export default function registrationNotificationRouter(services) {
@@ -43,6 +43,28 @@ export default function registrationNotificationRouter(services) {
       const id = idSchema.parse(req.params.id);
       res.json(
         await services.registrationNotifications.updateProfile(id, req.body),
+      );
+    },
+  );
+  router.put(
+    "/public/registration-avatar/:id",
+    createRateLimiter(10),
+    validateBody(
+      z.strictObject({
+        tokens: z
+          .array(z.string().regex(/^[a-f0-9]{64}$/))
+          .min(1)
+          .max(20),
+        avatar: avatarSchema.refine((value) => value.length > 0),
+      }),
+    ),
+    async (req, res) => {
+      res.json(
+        await services.registrationNotifications.syncAvatar(
+          idSchema.parse(req.params.id),
+          req.body.tokens,
+          req.body.avatar,
+        ),
       );
     },
   );

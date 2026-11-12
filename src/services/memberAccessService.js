@@ -7,6 +7,7 @@ const directoryFields = [
   "isBoard",
   "position",
   "initials",
+  "avatar",
 ];
 export class MemberAccessService {
   constructor(members, config, users, transport = fetch) {

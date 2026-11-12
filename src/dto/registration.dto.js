@@ -5,8 +5,10 @@ import {
   text,
   emailSchema,
   baseQuery,
+  avatarSchema,
 } from "./member.dto.js";
 const fields = {
+  avatar: avatarSchema.optional(),
   fullName: text(150).min(1),
   company: text(250).min(1),
   phone: text(30)

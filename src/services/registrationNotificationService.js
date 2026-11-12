@@ -90,6 +90,7 @@ export class RegistrationNotificationService {
       : [];
     const fields = [
       "fullName",
+      "avatar",
       "company",
       "phone",
       "email",
@@ -110,6 +111,7 @@ export class RegistrationNotificationService {
       );
       const memberFields = [
         "name",
+        "avatar",
         "company",
         "phone",
         "email",
@@ -210,6 +212,44 @@ export class RegistrationNotificationService {
             "Hồ sơ hội viên không còn khả dụng. Vui lòng liên hệ Hội.",
           );
       }
+    });
+    return this.applicant(tokens);
+  }
+  async syncAvatar(id, tokens, avatar) {
+    const hashes = tokens.map((token) =>
+      createHash("sha256").update(token).digest("hex"),
+    );
+    await this.registrations.db.transaction(async (session) => {
+      const row = await this.registrations
+        .findOne({
+          _id: id,
+          notificationTokenHash: { $in: hashes },
+          deletedAt: null,
+        })
+        .session(session)
+        .lean();
+      if (!row)
+        throw new NotFoundError(
+          "Không tìm thấy hồ sơ hoặc mã theo dõi không hợp lệ.",
+        );
+      // Never replace a portrait already chosen by the member/admin.
+      if (!row.avatar)
+        await this.registrations.updateOne(
+          { _id: id, avatar: { $in: [null, ""] } },
+          { $set: { avatar } },
+          { session },
+        );
+      if (row.status === "approved")
+        await this.members.updateOne(
+          {
+            _id: row.memberId,
+            sourceRegistrationId: id,
+            deletedAt: null,
+            avatar: { $in: [null, ""] },
+          },
+          { $set: { avatar: row.avatar || avatar } },
+          { session },
+        );
     });
     return this.applicant(tokens);
   }
