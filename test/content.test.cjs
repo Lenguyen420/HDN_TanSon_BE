@@ -481,3 +481,35 @@ test("lịch công bố dùng ngày và giờ Việt Nam cho cả danh sách và
     global.Date = NativeDate;
   }
 });
+
+test("metadata update keeps a missing legacy image; replacements are validated", async () => {
+  const created = await request("/admin/banners", "POST", {
+    ...fixtures.banners,
+    image: "data:image/png;base64," + png().toString("base64"),
+  });
+  assert.equal(created.status, 201);
+  const record = created.body.data;
+  await rm(join(uploadDirectory, ...record.image.split("/").slice(1)));
+  const dto = {
+    image: record.image,
+    alt: "Updated banner description",
+    order: 7,
+    status: "inactive",
+  };
+  const updated = await request("/admin/banners/" + record.id, "PUT", dto);
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.equal(updated.body.data.image, record.image);
+  assert.equal(updated.body.data.alt, dto.alt);
+  assert.equal(updated.body.data.order, 7);
+  const changed = await request("/admin/banners/" + record.id, "PUT", {
+    ...dto,
+    image: "uploads/banners/00000000-0000-4000-8000-000000000000.png",
+  });
+  assert.equal(changed.status, 400);
+  const replaced = await request("/admin/banners/" + record.id, "PUT", {
+    ...dto,
+    image: "data:image/png;base64," + png().toString("base64"),
+  });
+  assert.equal(replaced.status, 200, JSON.stringify(replaced.body));
+  assert.notEqual(replaced.body.data.image, record.image);
+});

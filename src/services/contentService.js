@@ -102,11 +102,13 @@ export class ContentService {
       throw new BadRequestError("Không thể đổi mã nội dung.");
     const { id: ignored, ...fields } = dto;
     // Avoid writing a new file for a missing/deleted record.
-    await this.get(id);
-    const prepared = await this.imageStorage.prepare(
-      fields.image,
-      this.collection,
-    );
+    const current = await this.get(id);
+    // Metadata edits keep the existing reference even if legacy storage is
+    // unavailable. Only a changed image needs upload validation/preparation.
+    const prepared =
+      fields.image === current.image
+        ? { image: current.image }
+        : await this.imageStorage.prepare(fields.image, this.collection);
     if (fields.image !== undefined) fields.image = prepared.image;
     try {
       const row = await this.model
