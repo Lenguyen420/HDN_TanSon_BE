@@ -35,10 +35,15 @@ export class MemberAccessService {
     }
     if (
       !response.ok ||
-      profile.error ||
-      typeof profile.id !== "string" ||
+      profile?.error ||
+      typeof profile?.id !== "string" ||
       !/^\d{1,100}$/.test(profile.id)
     ) {
+      // Log only numeric diagnostics, never provider payloads or access tokens.
+      console.warn("[Zalo] Profile verification failed", {
+        httpStatus: Number.isInteger(response.status) ? response.status : null,
+        providerCode: Number.isInteger(profile?.error) ? profile.error : null,
+      });
       throw new UnauthorizedError(
         "Phiên Zalo không hợp lệ hoặc đã hết hạn. Vui lòng xác thực lại.",
       );
