@@ -365,3 +365,7 @@ Kiểm thử tại `test/settings.test.cjs` dùng MongoDB tạm, bao gồm quy�
 4. Deploy backend rồi kiểm tra URL `/uploads/banners/...` trả ảnh. Không cần sửa frontend hoặc trang quản trị.
 
 Ảnh dùng dung lượng MongoDB và được sao lưu cùng database. Không tự xóa ảnh cũ khi sửa/xóa mềm nội dung; ảnh mới được dọn nếu lưu nội dung thất bại.
+
+## Mini App xem công khai
+
+Mini App mở các màn hình mà không yêu cầu xác thực Zalo. `GET /api/v1/public/members` cung cấp danh bạ hội viên đang hoạt động, hỗ trợ tìm kiếm/phân trang như danh bạ cũ; chỉ trả tên, doanh nghiệp, chức danh và vai trò. Không trả số điện thoại, email, ngày sinh hoặc liên kết Zalo. Các API quản trị và API hồ sơ cá nhân vẫn giữ xác thực.

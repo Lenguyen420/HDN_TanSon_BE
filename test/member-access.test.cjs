@@ -72,7 +72,7 @@ test("member APIs reject missing/invalid tokens and keep admin protected", async
   assert.equal((await request("/member/members")).status, 401);
   assert.equal((await request("/member/identity", "invalid")).status, 401);
   assert.equal((await request("/admin/members", "linked")).status, 401);
-  assert.equal((await request("/public/members")).status, 404);
+  assert.equal((await request("/public/members")).status, 200);
   assert.equal((await request("/member/identity", "offline")).status, 503);
 });
 test("Zalo identity must be linked to an active member", async () => {
@@ -312,4 +312,23 @@ test("consented sessions save Zalo accounts and link only verified unique phone 
       );
     },
   );
+});
+
+test("public directory works without authentication and excludes personal fields", async () => {
+  const result = await request("/public/members?page=1&limit=100");
+  assert.equal(result.status, 200);
+  assert.ok(result.body.data.length > 0);
+  for (const member of result.body.data) {
+    for (const field of [
+      "phone",
+      "email",
+      "birthDate",
+      "companyAddress",
+      "zaloUserId",
+    ])
+      assert.equal(member[field], undefined);
+    assert.notEqual(member.id, "inactive-member");
+    assert.notEqual(member.id, "deleted-member");
+  }
+  assert.equal((await request("/public/members?limit=1000")).status, 400);
 });
