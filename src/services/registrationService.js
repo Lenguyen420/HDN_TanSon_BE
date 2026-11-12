@@ -148,6 +148,7 @@ export class RegistrationService {
             birthDate: registration.birthDate,
             jobTitle: registration.jobTitle,
             companyAddress: registration.companyAddress,
+            companyFoundedAt: registration.companyFoundedAt,
             joinedAt: today(),
             position: "Hội viên",
             isBoard: false,

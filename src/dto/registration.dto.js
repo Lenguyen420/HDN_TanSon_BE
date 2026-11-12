@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   idSchema,
   dateSchema,
+  companyFoundedAtSchema,
   text,
   emailSchema,
   baseQuery,
@@ -11,6 +12,7 @@ const fields = {
   avatar: avatarSchema.optional(),
   fullName: text(150).min(1),
   company: text(250).min(1),
+  companyFoundedAt: companyFoundedAtSchema,
   phone: text(30)
     .min(1)
     .regex(/^[+\d(). -]{1,30}$/),
@@ -31,6 +33,7 @@ export const publicRegistrationSchema = z.strictObject({
 export const selfProfileSchema = z.strictObject({
   fullName: fields.fullName,
   company: fields.company,
+  companyFoundedAt: fields.companyFoundedAt,
   phone: fields.phone,
   email: fields.email,
   birthDate: fields.birthDate,

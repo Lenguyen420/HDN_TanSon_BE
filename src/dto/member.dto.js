@@ -9,6 +9,18 @@ export const dateSchema = z
       new Date(value).toISOString().slice(0, 10) === value,
     "Ngày phải đúng định dạng YYYY-MM-DD và tồn tại.",
   );
+export const companyFoundedAtSchema = z
+  .union([dateSchema, z.literal("")])
+  .refine(
+    (value) =>
+      !value ||
+      value <=
+        new Date().toLocaleDateString("en-CA", {
+          timeZone: "Asia/Ho_Chi_Minh",
+        }),
+    "Ngày thành lập không được ở tương lai.",
+  )
+  .optional();
 export const text = (max) => z.string().trim().max(max);
 export const emailSchema = text(254).regex(/^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/);
 export const avatarSchema = z.union([
@@ -40,6 +52,7 @@ export const memberSchema = z.strictObject({
     .regex(/^$|^\d{1,100}$/)
     .optional(),
   company: text(250).min(1),
+  companyFoundedAt: companyFoundedAtSchema,
   jobTitle: text(100).optional(),
   phone: text(30)
     .regex(/^[+\d(). -]{0,30}$/)

@@ -13,6 +13,7 @@ export const MemberSchema = new Schema(
     birthDate: String,
     joinedAt: { type: String, required: true },
     companyAddress: String,
+    companyFoundedAt: String,
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     isBoard: { type: Boolean, default: false },
     position: { type: String, default: "Hội viên" },

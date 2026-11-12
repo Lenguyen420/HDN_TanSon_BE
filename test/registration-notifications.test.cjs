@@ -331,3 +331,22 @@ test("registration portrait reaches member directories and legacy portrait sync 
     member.avatar,
   );
 });
+
+test("company founding date persists from registration through approval and profile", async () => {
+  await runtime.closeApp(app, server);
+  app = await runtime.createApp();
+  server = await runtime.listen(app, 0, "127.0.0.1");
+  base = "http://127.0.0.1:" + server.address().port + "/api/v1";
+  const token = secret();
+  const fields = { notificationToken: token, fullName: "Hội viên ngày thành lập", company: "Công ty kiểm thử ngày", phone: "0900000012", companyFoundedAt: "2010-05-20" };
+  for (const value of ["2099-01-01", "2026-02-30"]) assert.equal((await request("/public/registrations", "POST", { ...fields, companyFoundedAt: value })).status, 400);
+  const sent = await request("/public/registrations", "POST", fields);
+  assert.equal(sent.status, 201); const id = sent.body.data.id;
+  assert.equal((await app.locals.models.registrations.findById(id).lean()).companyFoundedAt, fields.companyFoundedAt);
+  assert.equal((await request(`/admin/registrations/${id}/approve`, "POST", {}, admin)).status, 200);
+  const profile = (await notices([token])).body.profiles[0];
+  assert.equal(profile.companyFoundedAt, fields.companyFoundedAt);
+  assert.equal(profile.member.companyFoundedAt, fields.companyFoundedAt);
+  const member = await app.locals.models.members.findById(profile.member.id).lean();
+  assert.equal(member.companyFoundedAt, fields.companyFoundedAt);
+});

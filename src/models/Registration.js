@@ -10,6 +10,7 @@ export const RegistrationSchema = new Schema(
     birthDate: String,
     jobTitle: String,
     companyAddress: String,
+    companyFoundedAt: String,
     taxCode: String,
     date: { type: String, required: true },
     note: String,

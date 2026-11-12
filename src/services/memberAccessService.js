@@ -3,6 +3,7 @@ import { HttpError, UnauthorizedError } from "../utils/httpError.js";
 const directoryFields = [
   "name",
   "company",
+  "companyFoundedAt",
   "jobTitle",
   "isBoard",
   "position",
