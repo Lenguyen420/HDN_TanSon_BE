@@ -1,4 +1,5 @@
 import { managedVideoPattern } from "../services/introductionVideoService.js";
+import { localVideoPattern } from "../services/localIntroductionVideoStorage.js";
 import { z } from "zod";
 import { emailSchema, text } from "./member.dto.js";
 
@@ -25,14 +26,19 @@ export const settingsSchema = z.strictObject({
   introduction: text(20_000).default(""),
   introductionVideoUrl: text(2048)
     .refine((value) => {
-      if (!value || managedVideoPattern.test(value)) return true;
+      if (
+        !value ||
+        managedVideoPattern.test(value) ||
+        localVideoPattern.test(value)
+      )
+        return true;
       try {
         const url = new URL(value);
         return url.protocol === "https:" && !url.username && !url.password;
       } catch {
         return false;
       }
-    }, "Video giới thiệu cần URL HTTPS hợp lệ.")
+    }, "Video giới thiệu cần đường dẫn uploads hoặc URL HTTPS hợp lệ.")
     .optional(),
   mission: text(20_000).default(""),
   department: text(250).default(""),

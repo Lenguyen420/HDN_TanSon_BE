@@ -16,6 +16,25 @@ export default function introductionVideoRouter(services) {
   // for this route, including unauthenticated requests.
   router.use(root, createRateLimiter(600), authAdmin(services.auth));
   router.post(
+    root + "/upload",
+    (req, res, next) =>
+      services.localIntroductionVideos.middleware()(req, res, next),
+    async (req, res) => {
+      try {
+        const video = await services.localIntroductionVideos.finish(req.file);
+        await services.settings.update(
+          { introductionVideoUrl: video.url },
+          req.user.id,
+        );
+        res.set("Cache-Control", "no-store").status(201).json({ data: video });
+      } catch (error) {
+        await services.localIntroductionVideos.discard(req.file);
+        throw error;
+      }
+    },
+  );
+  // Legacy chunk routes remain compatible with existing clients and stored videos.
+  router.post(
     root,
     validateBody(
       z.strictObject({

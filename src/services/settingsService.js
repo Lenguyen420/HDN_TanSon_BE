@@ -1,4 +1,5 @@
 import { managedVideoPattern } from "./introductionVideoService.js";
+import { localVideoPattern } from "./localIntroductionVideoStorage.js";
 import { BadRequestError } from "../utils/httpError.js";
 import { defaultSettings } from "../dto/settings.dto.js";
 
@@ -14,9 +15,10 @@ function present(row, isPublic = false) {
 }
 
 export class SettingsService {
-  constructor(settings, videos) {
+  constructor(settings, videos, localVideos) {
     this.settings = settings;
     this.videos = videos;
+    this.localVideos = localVideos;
   }
 
   async get(isPublic = false) {
@@ -26,6 +28,11 @@ export class SettingsService {
 
   async update(dto, adminId) {
     const { id, ...fields } = dto;
+    if (
+      localVideoPattern.test(fields.introductionVideoUrl || "") &&
+      !(await this.localVideos?.exists(fields.introductionVideoUrl))
+    )
+      throw new BadRequestError("Video trong uploads không tồn tại.");
     const videoId =
       fields.introductionVideoUrl?.match(managedVideoPattern)?.[1];
     if (videoId && !(await this.videos?.exists(videoId)))

@@ -1,6 +1,7 @@
 {
   "watch": [
     "src",
+    "scripts/start-local.js",
     ".env"
   ],
   "ext": "js,json,env",

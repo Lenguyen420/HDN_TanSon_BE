@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     env_file:
       - ../../.env
+    volumes:
+      - backend_uploads:/app/uploads
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -33,5 +35,6 @@ services:
     depends_on:
       - backend
 volumes:
+  backend_uploads:
   caddy_data:
   caddy_config:

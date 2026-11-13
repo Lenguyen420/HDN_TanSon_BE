@@ -14,9 +14,14 @@ export const uploadedImagePattern =
   /^uploads\/(news|events|member-visits|banners)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
 
 export class ImageStorage {
-  constructor(directory = defaultUploadDirectory, bucket = null) {
+  constructor(
+    directory = defaultUploadDirectory,
+    bucket = null,
+    readBucket = bucket,
+  ) {
     this.directory = directory;
     this.bucket = bucket;
+    this.readBucket = readBucket;
   }
 
   async initialize() {
@@ -43,17 +48,22 @@ export class ImageStorage {
         if (!uploadedImagePattern.test(image))
           throw new BadRequestError("Đường dẫn ảnh không hợp lệ.");
         try {
-          if (this.bucket) {
-            const stored = await this.bucket
+          let localExists = false;
+          try {
+            await access(
+              path.join(this.directory, ...image.split("/").slice(1)),
+            );
+            localExists = true;
+          } catch (error) {
+            if (error.code !== "ENOENT") throw error;
+          }
+          if (!localExists && this.readBucket) {
+            const stored = await this.readBucket
               .find({ filename: image })
               .limit(1)
               .next();
             if (!stored) throw new Error("Missing image");
-          } else {
-            await access(
-              path.join(this.directory, ...image.split("/").slice(1)),
-            );
-          }
+          } else if (!localExists) throw new Error("Missing image");
         } catch {
           throw new BadRequestError("Ảnh tải lên không còn tồn tại.");
         }
@@ -106,7 +116,7 @@ export class ImageStorage {
 
   middleware() {
     return async (req, res, next) => {
-      if (!this.bucket) return next();
+      if (!this.readBucket) return next();
       const image = "uploads" + req.path;
       if (
         !["GET", "HEAD"].includes(req.method) ||
@@ -114,11 +124,22 @@ export class ImageStorage {
       )
         return res.status(404).end();
       try {
-        const file = await this.bucket
+        // Local writes remain local; older deployed images can still be read.
+        if (!this.bucket) {
+          try {
+            await access(
+              path.join(this.directory, ...image.split("/").slice(1)),
+            );
+            return next();
+          } catch (error) {
+            if (error.code !== "ENOENT") throw error;
+          }
+        }
+        const file = await this.readBucket
           .find({ filename: image })
           .limit(1)
           .next();
-        if (!file) return res.status(404).end();
+        if (!file) return next();
         const extension = image.split(".").pop();
         res.set({
           "Content-Type":
@@ -128,7 +149,7 @@ export class ImageStorage {
           "Cross-Origin-Resource-Policy": "cross-origin",
         });
         if (req.method === "HEAD") return res.end();
-        await pipeline(this.bucket.openDownloadStream(file._id), res);
+        await pipeline(this.readBucket.openDownloadStream(file._id), res);
       } catch (error) {
         if (res.headersSent) res.destroy();
         else next(error);

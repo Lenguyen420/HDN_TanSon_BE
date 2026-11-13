@@ -1,4 +1,5 @@
 import introductionVideoRouter from "./introductionVideoRouter.js";
+import publicNotificationRouter from "./publicNotificationRouter.js";
 import tradeRouter from "./tradeRouter.js";
 import eventAttendanceRouter from "./eventAttendanceRouter.js";
 import { membersQuery } from "../dto/member.dto.js";
@@ -22,6 +23,7 @@ export default function appRouter(services) {
   const router = Router();
   router.use(tradeRouter(services));
   router.use(introductionVideoRouter(services));
+  router.use(publicNotificationRouter(services));
   router.use(eventFileRouter(services));
   router.get("/health", healthController);
   router.use(eventAttendanceRouter(services));

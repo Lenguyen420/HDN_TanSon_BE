@@ -1,4 +1,6 @@
 import { IntroductionVideoService } from "./services/introductionVideoService.js";
+import { PublicNotificationService } from "./services/publicNotificationService.js";
+import { LocalIntroductionVideoStorage } from "./services/localIntroductionVideoStorage.js";
 import createEventAttendanceModel from "./models/EventAttendance.js";
 import { EventAttendanceService } from "./services/eventAttendanceService.js";
 import mongoose from "mongoose";
@@ -54,7 +56,14 @@ export async function createApp({
     const bucket = useMongoImages
       ? new mongoose.mongo.GridFSBucket(connection.db, { bucketName: "images" })
       : null;
-    const imageStorage = new ImageStorage(uploadDirectory, bucket);
+    const imageReadBucket =
+      bucket ??
+      new mongoose.mongo.GridFSBucket(connection.db, { bucketName: "images" });
+    const imageStorage = new ImageStorage(
+      uploadDirectory,
+      bucket,
+      imageReadBucket,
+    );
     await imageStorage.initialize();
     const models = {
       admins: createAdminModel(connection),
@@ -69,7 +78,11 @@ export async function createApp({
       settings: createSettingsModel(connection),
     };
     const introductionVideos = new IntroductionVideoService(connection.db);
+    const localIntroductionVideos = new LocalIntroductionVideoStorage(
+      uploadDirectory,
+    );
     const services = {
+      localIntroductionVideos,
       introductionVideos,
       eventFiles: new EventFileService(
         new mongoose.mongo.GridFSBucket(connection.db, {
@@ -93,7 +106,11 @@ export async function createApp({
         config,
         models.zaloUsers,
       ),
-      settings: new SettingsService(models.settings, introductionVideos),
+      settings: new SettingsService(
+        models.settings,
+        introductionVideos,
+        localIntroductionVideos,
+      ),
       content: Object.fromEntries(
         Object.entries(contentDefinitions).map(([key, definition]) => [
           key,
@@ -111,6 +128,9 @@ export async function createApp({
         connection,
       ),
     };
+    services.publicNotifications = new PublicNotificationService(
+      services.content,
+    );
     services.tradeAuth = new TradeAuthService(
       connection,
       models,
@@ -159,6 +179,18 @@ export async function createApp({
     app.locals.services = services;
     app.use(helmet());
     app.use(cors(corsOptions(config)));
+    // Local videos must bypass the GridFS image middleware, which only accepts image paths.
+    app.use(
+      "/uploads/introduction-videos",
+      express.static(localIntroductionVideos.directory, {
+        dotfiles: "deny",
+        index: false,
+        maxAge: "1y",
+        immutable: true,
+        setHeaders: (res) =>
+          res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
+      }),
+    );
     app.use("/uploads", imageStorage.middleware());
     app.use(
       "/uploads",
@@ -199,7 +231,10 @@ export function listen(
   host = process.env.HOST || "127.0.0.1",
 ) {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, host, () => resolve(server));
+    const server = app.listen(port, host, (error) => {
+      if (error) reject(error);
+      else resolve(server);
+    });
     server.once("error", reject);
   });
 }

@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "start": "node src/main.js",
-    "start:dev": "nodemon src/main.js",
-    "server": "nodemon src/main.js",
+    "dev": "nodemon scripts/start-local.js",
+    "start:local": "node scripts/start-local.js",
+    "start:dev": "nodemon scripts/start-local.js",
+    "server": "nodemon scripts/start-local.js",
     "build": "node scripts/check.cjs",
     "test": "npm run build && node --test test/*.test.cjs",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.cjs\" \"scripts/**/*.cjs\"",
@@ -22,6 +24,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.24.8",
+    "multer": "^2.5.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

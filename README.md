@@ -1,5 +1,45 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+Admin và Mini App hiện kết nối backend Vercel tại `https://behdntanson.vercel.app/api/v1`. Không cần chạy backend local. Các lệnh local bên dưới chỉ dùng khi chủ động chuyển cấu hình để phát triển. Thay đổi backend trong repo cần được deploy lên Vercel trước khi frontend dùng được API mới; lưu video vào thư mục uploads yêu cầu máy chủ có ổ đĩa bền vững và không hỗ trợ trên Vercel.
+
+## Thông báo công khai và thông báo riêng
+
+`GET /api/v1/public/notification-feed?page=1&limit=20` trả hộp thư công khai gồm thông báo Hội đã xuất bản và thông báo tự suy ra từ tin tức/sự kiện đã xuất bản, đúng lịch công bố. Không yêu cầu OA, Zalo token hoặc đăng nhập. Có thể lọc `source=announcement|news|events` và tìm `search`. Mỗi mục có `scope: "public"`; tin tức/sự kiện có `related: {category, articleId}` để mở nội dung. ID ổn định nên sửa bài không tạo thông báo trùng hoặc làm mất trạng thái đã đọc. Chuyển về bản nháp/xóa bài thì thông báo tương ứng biến mất. Sự kiện được thông báo theo ngày xuất bản bài, không đợi đến ngày diễn ra.
+
+Thông báo riêng giữ logic cũ: kết quả đăng ký hội viên và tham gia sự kiện chỉ trả qua mã theo dõi bí mật của hồ sơ; inbox quản trị yêu cầu admin; thông báo giao thương vẫn yêu cầu phiên giao thương và kiểm tra người nhận. Feed công khai không đọc hoặc hợp nhất dữ liệu từ các collection riêng này. Endpoint CRUD `/admin/notifications` và `/public/notifications` cũ vẫn hoạt động. Mini App cập nhật hộp thư khi đang mở, không gửi tin nhắn OA hay push khi đóng ứng dụng.
+
+## Chạy local trước khi deploy
+
+Trong thư mục backend, chạy `npm install` nếu chưa cài dependency, sau đó:
+
+```powershell
+npm run dev
+```
+
+Backend chạy ở `http://localhost:4000`, tự khởi động lại khi sửa source hoặc `.env`. Muốn chạy không theo dõi thay đổi, dùng `npm run start:local`. Hai lệnh dùng MongoDB và JWT_SECRET đã cấu hình trong `.env`, không cần deploy trước. Chế độ local bỏ cờ Vercel để lưu video vào thư mục `uploads/introduction-videos/` trên máy.
+
+Kiểm tra `GET http://localhost:4000/api/v1/health`; kết quả đúng là `{"status":"ok","service":"tanson-backend"}`. Nếu dùng Atlas, vẫn cần Internet và IP được cho phép kết nối database.
+
+Mở hai terminal khác để chạy các ứng dụng:
+
+```powershell
+# Terminal admin
+cd D:\HDN_TanSon_Admin\admin-dashboard
+npm run dev
+
+# Terminal Mini App
+cd D:\HDN_TanSon\hdntanson
+npm start
+```
+
+Admin dùng `ASSOCIATION_API_URL=http://localhost:4000/api/v1` trong `.env.local`. Mini App dùng `VITE_API_BASE_URL=/api/v1`, proxy `/api` và `/uploads` tới `http://localhost:4000`. Cần khởi động lại frontend sau khi đổi biến môi trường. Để kiểm tra upload video, mở admin ở `http://localhost:3003`, chọn video và bấm Lưu rồi mở trang Giới thiệu trên Mini App web.
+
+Localhost dùng cho trình duyệt trên cùng máy. Chạy trên điện thoại/Zalo cần địa chỉ backend mà thiết bị truy cập được; localhost trên điện thoại không trỏ về máy tính. `npm start` vẫn là lệnh chạy máy chủ production.
+
+## Video giới thiệu lưu trong uploads
+
+Khi người dùng bấm Lưu, frontend gửi file video bằng FormData tới POST /api/v1/admin/introduction-videos/upload. Backend lưu file vào uploads/introduction-videos/ và cập nhật đường dẫn trong MongoDB. Xem [hướng dẫn tích hợp và triển khai](docs/introduction-video-local.md).
+
 ## Ảnh đại diện Hội viên và Ban chấp hành
 
 Hội viên và hồ sơ đăng ký lưu trường `avatar` (URL HTTP(S) hoặc đường dẫn ảnh `uploads/...`). API danh bạ công khai/riêng trả trường ảnh; admin lưu ảnh qua trường URL ảnh đại diện. Ảnh được Mini App gửi cùng đăng ký từ thông tin SDK đã được người dùng cấp quyền và được sao chép sang hội viên khi duyệt.

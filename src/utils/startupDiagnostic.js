@@ -2,7 +2,7 @@
 const diagnostics = new Map([
   [
     "Điền MONGODB_URI trong .env trước khi chạy.",
-    "MONGODB_URI_INVALID: Thêm MONGODB_URI hợp lệ vào Environment Variables của Vercel.",
+    "MONGODB_URI_INVALID: Thêm MONGODB_URI hợp lệ vào .env hoặc biến môi trường của máy chủ.",
   ],
   [
     "JWT_SECRET cần ít nhất 32 ký tự.",
