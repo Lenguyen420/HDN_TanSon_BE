@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessLicensePattern } from "../services/businessLicenseStorage.js";
 import {
   idSchema,
   dateSchema,
@@ -25,6 +26,13 @@ const fields = {
 };
 export const publicRegistrationSchema = z.strictObject({
   ...fields,
+  businessLicenseImage: z
+    .string()
+    .max(1_400_000)
+    .regex(
+      businessLicensePattern,
+      "Ảnh giấy phép kinh doanh là bắt buộc (JPG, PNG hoặc WebP).",
+    ),
   notificationToken: z
     .string()
     .regex(/^[a-f0-9]{64}$/)

@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
+import { companyAnniversaryPipeline } from "./companyAnniversary.js";
 // Public inbox entries are derived from public content, never from private
 // registration receipts or trade notifications. Stable IDs preserve read state.
 export class PublicNotificationService {
-  constructor(content) {
+  constructor(content, members, clock = () => new Date()) {
     this.content = content;
+    this.members = members;
+    this.clock = clock;
   }
   pipeline(source) {
     const service = this.content[source];
@@ -52,6 +56,20 @@ export class PublicNotificationService {
           pipeline: this.pipeline(source),
         },
       });
+    if (this.members) {
+      const date = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(this.clock());
+      pipeline.push({
+        $unionWith: {
+          coll: this.members.collection.name,
+          pipeline: companyAnniversaryPipeline(date),
+        },
+      });
+    }
     if (query.source) pipeline.push({ $match: { source: query.source } });
     if (query.search) {
       const search = {
@@ -76,7 +94,16 @@ export class PublicNotificationService {
     );
     const [result] = await this.content.notifications.model.aggregate(pipeline);
     return {
-      data: result.data,
+      data: result.data.map((notice) =>
+        notice.source === "company-anniversary"
+          ? {
+              ...notice,
+              id:
+                "company-anniversary-" +
+                createHash("sha256").update(notice.id).digest("hex"),
+            }
+          : notice,
+      ),
       pagination: {
         page: query.page,
         limit: query.limit,

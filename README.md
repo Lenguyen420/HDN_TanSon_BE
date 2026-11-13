@@ -1,5 +1,17 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+## Giấy phép kinh doanh bắt buộc khi đăng ký trên Mini App
+
+`POST /api/v1/public/registrations` yêu cầu `businessLicenseImage` dạng data URL JPG/PNG/WebP. Ảnh sau xử lý tối đa 1 MiB, request JSON tối đa 2 MiB; backend kiểm tra chữ ký ảnh, lưu vào GridFS `registration_documents` và chỉ lưu ID file trong hồ sơ. Nếu ghi hồ sơ thất bại, ảnh được dọn. Ảnh không được đưa vào danh bạ, thông báo hoặc hồ sơ công khai.
+
+Admin đọc ảnh bằng `GET /api/v1/admin/registrations/:id/business-license` với Bearer token hợp lệ; response là ảnh và `Cache-Control: private, no-store`. Danh sách/chi tiết hồ sơ admin có `hasBusinessLicense`; không trả ID GridFS hoặc base64. Hồ sơ cũ và công cụ nhập/sửa dữ liệu admin được giữ tương thích. Deploy backend trước, sau đó admin và Mini App mới để áp dụng trường bắt buộc.
+
+## Sinh nhật doanh nghiệp trong thông báo chung
+
+Feed `/api/v1/public/notification-feed` tự hiển thị lời chúc kỷ niệm thành lập vào đúng ngày theo giờ Việt Nam, lấy `companyFoundedAt` từ hội viên đang hoạt động, chưa xóa. Không sử dụng ngày sinh cá nhân hoặc hồ sơ đăng ký chưa được duyệt. Các hội viên cùng tên doanh nghiệp/ngày thành lập được gộp một thông báo; ID ổn định theo doanh nghiệp, ngày thành lập và năm kỷ niệm. Chỉ hiển thị từ kỷ niệm một năm trở đi, bỏ ngày thiếu/sai/tương lai. Ngày 29/2 được tính vào 28/2 khi năm hiện tại không nhuận.
+
+Thông báo có `scope: "public"`, `source: "company-anniversary"`, `company`, `companyFoundedAt`, `anniversaryYears`; không trả tên cá nhân, số điện thoại hoặc email. Dùng `?source=company-anniversary` để lọc. Thông báo xuất hiện trong hộp thư chung vào ngày kỷ niệm và tự cập nhật khi Mini App mở; không cần OA, tác vụ cron hoặc tin nhắn đẩy ngoài ứng dụng. Cần deploy backend mới lên Vercel để áp dụng.
+
 Điểm danh sự kiện: `POST /api/v1/public/events/:id/check-in` nhận `{token}` từ mã theo dõi đăng ký tham gia. Backend lấy họ tên/đơn vị đã lưu, không cần nhập lại; mã chưa đăng ký bị từ chối. Lịch mở điểm danh và chống ghi nhận trùng vẫn giữ nguyên. Payload có họ tên của client cũ vẫn được hỗ trợ để tương thích, nhưng không ghi đè thông tin đã đăng ký.
 
 Admin và Mini App hiện kết nối backend Vercel tại `https://behdntanson.vercel.app/api/v1`. Không cần chạy backend local. Các lệnh local bên dưới chỉ dùng khi chủ động chuyển cấu hình để phát triển. Thay đổi backend trong repo cần được deploy lên Vercel trước khi frontend dùng được API mới; lưu video vào thư mục uploads yêu cầu máy chủ có ổ đĩa bền vững và không hỗ trợ trên Vercel.

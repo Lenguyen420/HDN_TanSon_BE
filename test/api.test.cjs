@@ -5,7 +5,7 @@ const { MongoMemoryReplSet } = require("mongodb-memory-server");
 const { mkdtemp, rm } = require("node:fs/promises");
 const { join, resolve, sep } = require("node:path");
 const { tmpdir } = require("node:os");
-const { png } = require("./image-fixture.cjs");
+const { png, businessLicenseImage } = require("./image-fixture.cjs");
 let uploadDirectory;
 let mongo, app, server, closeApp, base, accessToken, refreshToken;
 const password = randomBytes(24).toString("base64url");
@@ -185,6 +185,7 @@ test("API auth và hội viên hoạt động với MongoDB thật dùng riêng 
       );
       const dto = {
         fullName: "Ứng viên công khai",
+        businessLicenseImage,
         company: "Công ty mẫu",
         phone: "0900000002",
       };

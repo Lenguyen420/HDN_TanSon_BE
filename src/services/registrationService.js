@@ -5,11 +5,18 @@ import {
   HttpError,
 } from "../utils/httpError.js";
 import { randomUUID, createHash } from "node:crypto";
+import { BusinessLicenseStorage } from "./businessLicenseStorage.js";
 const today = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 const present = (row) => {
-  const { _id, deletedAt, notificationTokenHash, ...rest } = row;
-  return { ...rest, id: _id };
+  const {
+    _id,
+    deletedAt,
+    notificationTokenHash,
+    businessLicenseFileId,
+    ...rest
+  } = row;
+  return { ...rest, id: _id, hasBusinessLicense: !!businessLicenseFileId };
 };
 export class RegistrationService {
   registrations;
@@ -19,6 +26,7 @@ export class RegistrationService {
     this.registrations = registrations;
     this.members = members;
     this.connection = connection;
+    this.businessLicenses = new BusinessLicenseStorage(connection.db);
   }
   async initialize() {
     await Promise.all([this.registrations.init(), this.members.init()]);
@@ -70,22 +78,46 @@ export class RegistrationService {
     return { data: present(row.toObject()) };
   }
   async submitPublic(dto) {
-    const { notificationToken, ...fields } = dto;
-    const result = await this.create({
-      ...fields,
-      date: today(),
-      ...(notificationToken
-        ? {
-            notificationTokenHash: createHash("sha256")
-              .update(notificationToken)
-              .digest("hex"),
-          }
-        : {}),
-    });
+    const { notificationToken, businessLicenseImage, ...fields } = dto;
+    this.validateBirthDate(fields);
+    const id = randomUUID();
+    const fileId = await this.businessLicenses.save(id, businessLicenseImage);
+    let result;
+    try {
+      result = await this.create({
+        ...fields,
+        id,
+        businessLicenseFileId: fileId,
+        date: today(),
+        ...(notificationToken
+          ? {
+              notificationTokenHash: createHash("sha256")
+                .update(notificationToken)
+                .digest("hex"),
+            }
+          : {}),
+      });
+    } catch (error) {
+      await this.businessLicenses.discard(fileId);
+      throw error;
+    }
     return {
       data: { id: result.data.id, status: result.data.status },
       message: "Đã tiếp nhận hồ sơ. Vui lòng chờ Hội xét duyệt.",
     };
+  }
+  async businessLicense(id, req, res) {
+    const record = await this.registrations
+      .findOne({ _id: id, deletedAt: null })
+      .lean();
+    if (!record?.businessLicenseFileId)
+      throw new NotFoundError("Hồ sơ chưa có ảnh giấy phép kinh doanh.");
+    await this.businessLicenses.serve(
+      record.businessLicenseFileId,
+      id,
+      req,
+      res,
+    );
   }
   async update(id, dto) {
     this.validateBirthDate(dto);

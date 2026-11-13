@@ -15,6 +15,9 @@ export default function registrationRouter(services) {
   const router = Router(),
     controller = registrationController(services.registrations);
   router.use(authAdmin(services.auth));
+  router.get("/:id/business-license", async (req, res) =>
+    services.registrations.businessLicense(req.params.id, req, res),
+  );
   router.get("/", validateQuery(registrationsQuery), controller.list);
   router.post(
     "/import",

@@ -130,6 +130,7 @@ export async function createApp({
     };
     services.publicNotifications = new PublicNotificationService(
       services.content,
+      models.members,
     );
     services.tradeAuth = new TradeAuthService(
       connection,
@@ -213,6 +214,8 @@ export async function createApp({
         return express.json({ limit: "2mb" })(req, res, next);
       next();
     });
+    // Registration includes one resized license photo, kept below Vercel's payload limit.
+    app.use("/api/v1/public/registrations", express.json({ limit: "2mb" }));
     app.use(express.json({ limit: "256kb" }));
     app.use("/api/v1", createApiRateLimiter(), appRouter(services));
     app.use((req, res) =>

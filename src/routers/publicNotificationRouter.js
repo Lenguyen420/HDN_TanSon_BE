@@ -10,7 +10,9 @@ export default function publicNotificationRouter(services) {
     validateQuery(
       z.strictObject({
         ...baseQuery,
-        source: z.enum(["announcement", "news", "events"]).optional(),
+        source: z
+          .enum(["announcement", "news", "events", "company-anniversary"])
+          .optional(),
       }),
     ),
     async (req, res) => {

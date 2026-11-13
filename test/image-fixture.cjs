@@ -32,3 +32,5 @@ exports.png = (width = 1, height = 1) => {
     chunk("IEND", Buffer.alloc(0)),
   ]);
 };
+
+exports.businessLicenseImage = "data:image/png;base64," + exports.png(2, 2).toString("base64");

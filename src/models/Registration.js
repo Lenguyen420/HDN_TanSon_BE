@@ -12,6 +12,7 @@ export const RegistrationSchema = new Schema(
     companyAddress: String,
     companyFoundedAt: String,
     taxCode: String,
+    businessLicenseFileId: String,
     date: { type: String, required: true },
     note: String,
     notificationTokenHash: { type: String, select: false, index: true },
