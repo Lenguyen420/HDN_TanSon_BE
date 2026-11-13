@@ -67,8 +67,10 @@ export default function eventAttendanceRouter(services) {
     validateBody(
       z.strictObject({
         token,
-        name: text(150).min(1),
-        company: text(250).default(""),
+        // Existing clients may still send these fields. Registered attendees
+        // are identified by their receipt and use the stored name/company.
+        name: text(150).min(1).optional(),
+        company: text(250).optional(),
       }),
     ),
     async (req, res) =>

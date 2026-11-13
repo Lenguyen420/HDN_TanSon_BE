@@ -81,6 +81,11 @@ export class EventAttendanceService {
     const filter = { eventId, tokenHash: digest(dto.token) };
     const existing = await this.records.findOne(filter).lean();
     if (existing?.checkedAt) return { data: present(existing) };
+    if (!existing?.registeredAt && !dto.name)
+      throw new HttpError(
+        409,
+        "Chưa có đăng ký tham gia sự kiện trên thiết bị này. Vui lòng đăng ký trước khi điểm danh.",
+      );
     const now = this.clock();
     const schedule = eventSchedule(article);
     if (
@@ -99,20 +104,26 @@ export class EventAttendanceService {
           { ...filter, checkedAt: null },
           {
             $set: { checkedAt: now },
-            $setOnInsert: {
-              ...filter,
-              _id: randomUUID(),
-              name: dto.name,
-              company: dto.company,
-            },
+            ...(!existing
+              ? {
+                  $setOnInsert: {
+                    ...filter,
+                    _id: randomUUID(),
+                    name: dto.name,
+                    company: dto.company || "",
+                  },
+                }
+              : {}),
           },
-          { upsert: true, new: true, runValidators: true },
+          { upsert: !existing, new: true, runValidators: true },
         )
         .lean();
     } catch (error) {
       if (error.code !== 11000) throw error;
       record = await this.records.findOne(filter).lean();
     }
+    // Another tap may have completed the same receipt while this request waited.
+    record ??= await this.records.findOne(filter).lean();
     return { data: present(record) };
   }
   async list(eventId, query) {

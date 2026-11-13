@@ -93,12 +93,29 @@ test("joining, 30-minute reminders and absence notices use server time and priva
     assert.equal(late.data.length, 1);
     assert.equal(late.data[0].createdAt, "2030-06-01T01:59:00.000Z");
     now = new Date("2030-06-01T09:15:00+07:00");
-    const check = await req("/public/events/event-join/check-in", "POST", {
-      token: tokenA,
-      name: "Hội viên A",
-      company: "Công ty",
-    });
+    const [check, duplicate] = await Promise.all([
+      req("/public/events/event-join/check-in", "POST", { token: tokenA }),
+      req("/public/events/event-join/check-in", "POST", {
+        token: tokenA,
+        name: "Tên không được ghi đè",
+        company: "Đơn vị khác",
+      }),
+    ]);
     assert.equal(check.status, 200);
+    assert.equal(duplicate.status, 200);
+    assert.equal(check.body.data.name, "Hội viên A");
+    assert.equal(check.body.data.company, "Công ty");
+    assert.equal(duplicate.body.data.name, "Hội viên A");
+    assert.equal(duplicate.body.data.checkedAt, check.body.data.checkedAt);
+    assert.equal(await service.records.countDocuments(), 2);
+    assert.equal(
+      (
+        await req("/public/events/event-join/check-in", "POST", {
+          token: tokenC,
+        })
+      ).status,
+      409,
+    );
     assert.equal(
       (await updates([tokenA])).body.participations[0].status,
       "attended",

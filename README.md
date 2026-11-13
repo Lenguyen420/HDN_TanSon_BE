@@ -1,5 +1,7 @@
 # Backend Hội Doanh nghiệp Phường Tân Sơn
 
+Điểm danh sự kiện: `POST /api/v1/public/events/:id/check-in` nhận `{token}` từ mã theo dõi đăng ký tham gia. Backend lấy họ tên/đơn vị đã lưu, không cần nhập lại; mã chưa đăng ký bị từ chối. Lịch mở điểm danh và chống ghi nhận trùng vẫn giữ nguyên. Payload có họ tên của client cũ vẫn được hỗ trợ để tương thích, nhưng không ghi đè thông tin đã đăng ký.
+
 Admin và Mini App hiện kết nối backend Vercel tại `https://behdntanson.vercel.app/api/v1`. Không cần chạy backend local. Các lệnh local bên dưới chỉ dùng khi chủ động chuyển cấu hình để phát triển. Thay đổi backend trong repo cần được deploy lên Vercel trước khi frontend dùng được API mới; lưu video vào thư mục uploads yêu cầu máy chủ có ổ đĩa bền vững và không hỗ trợ trên Vercel.
 
 ## Thông báo công khai và thông báo riêng
