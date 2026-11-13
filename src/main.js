@@ -147,6 +147,7 @@ export async function createApp({
     services.trade.mediaService = new TradeMediaService(services.trade);
     services.trade.community = new TradeCommunityService(services.trade);
     services.trade.analytics = new TradeAnalyticsService(services.trade);
+    services.publicNotifications.trade = services.trade;
     services.eventAttendance = new EventAttendanceService(
       models.eventAttendance,
       services.content.events,

@@ -8,6 +8,7 @@ Triển khai theo `trade-module-spec.md`: giữ vòng đời và các quy tắc 
 2. Deploy backend trước, admin sau, Mini App sau cùng. Không cần chuyển dữ liệu nội dung cũ.
 3. Trong admin, mở **Giao thương → Danh mục** để tạo danh mục đầu tiên. `SUPER_ADMIN` quản lý danh mục và tài khoản; `STAFF` đọc danh mục, kiểm duyệt tin/đánh giá và hỗ trợ hội thoại.
 4. Hội viên hoạt động đã có hồ sơ đăng ký được duyệt có thể đăng tin trên Mini App. Danh mục chưa có thì chưa thể đăng tin.
+   Chạy `npm run trade:seed-categories` để bổ sung Sản phẩm, Dịch vụ, Cần mua, Khuyến mãi, Cộng đồng vào MongoDB đang cấu hình. Lệnh chỉ thêm mã còn thiếu, không sửa hoặc khôi phục danh mục admin đã chỉnh/ẩn/xóa. Bộ lọc và form đăng tin đều dùng danh mục thật từ API. Nút mặc định **Lưu và gửi duyệt** lưu tin rồi chuyển sang `PENDING`; bỏ chọn gửi duyệt để lưu nháp. Nếu bước gửi duyệt lỗi, thử lại tiếp tục sửa cùng bản nháp, không tạo thêm tin mới.
 5. Nên đặt `TRADE_ANALYTICS_HASH_SECRET` riêng, đủ ngẫu nhiên. Nếu bỏ qua, backend dùng `JWT_SECRET` làm salt. Không lưu IP hoặc User-Agent thô.
 
 ## Xác thực
@@ -65,6 +66,15 @@ Query danh sách hỗ trợ phân trang, tìm theo tiêu đề/tóm tắt/địa
 Thay transport WebSocket của hệ thống gốc bằng **SSE có xác thực**, phù hợp backend HTTP/Vercel hiện tại. Giữ sự kiện `CHAT_MESSAGE` với payload `{conversationId,tradePostId,message}`. Mỗi kết nối tối đa 25 giây; client nối lại và đọc lịch sử từ DB. Mini App có kiểm tra lại lịch sử mỗi 10 giây khi đang mở hội thoại để phục hồi khi mạng/stream bị gián đoạn. Tin nhắn mới không tạo thông báo chuông; chỉ hội thoại mới tạo thông báo kết nối.
 
 Thông báo khác được đọc trong mục Giao thương của hai FE. Chưa tích hợp gửi Zalo OA vì dự án chưa có kênh OA cho module này; dữ liệu và thông báo trong ứng dụng vẫn đầy đủ.
+
+### Duyệt tin và thông báo
+
+- Admin duyệt tin bằng bảng, mặc định lọc `PENDING`; có tìm kiếm, phân trang, trạng thái, xem chi tiết trong hộp thoại, duyệt công bố và yêu cầu bổ sung kèm lý do.
+- Gửi tin để duyệt (hoặc sửa nội dung quan trọng của tin đã công bố): admin nhận `TRADE_POST_SUBMITTED`, chủ tin nhận riêng `TRADE_POST_PENDING`. Chuông và trung tâm thông báo admin mở `/admin/trade?tradePostId=...` để xem đúng tin.
+- Duyệt công bố: chủ tin nhận `TRADE_POST_APPROVED`; `TRADE_POST_NEW` phát cho các tài khoản giao thương ở lần duyệt đầu, gồm cả chủ tin.
+- `/public/notification-feed?source=trade` đưa tin đã duyệt vào thông báo chung cho mọi người, không cần OA/đăng nhập. Chỉ trả tin `PUBLISHED` còn hiệu lực, thuộc danh mục hoạt động; tin chờ duyệt, ẩn, xóa hoặc hết hạn không xuất hiện. Mỗi tin có ID thông báo ổn định `trade-post-new-<id>` và `tradePostId` để mở đúng tin.
+- Mini App hợp nhất thông báo công khai và riêng vào hộp thư chung. Thông báo riêng chỉ tải khi thiết bị có receipt đăng ký hợp lệ hoặc phiên giao thương đã xác thực; không bật SDK/OA cho khách chỉ đọc thông báo công khai. Không hiển thị lặp lại broadcast tin mới trong hộp thư riêng.
+- Các thông báo này cập nhật trong ứng dụng, chưa gửi push bên ngoài qua Zalo OA.
 
 ## Kiểm tra
 

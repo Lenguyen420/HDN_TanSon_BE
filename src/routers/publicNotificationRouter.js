@@ -11,7 +11,13 @@ export default function publicNotificationRouter(services) {
       z.strictObject({
         ...baseQuery,
         source: z
-          .enum(["announcement", "news", "events", "company-anniversary"])
+          .enum([
+            "announcement",
+            "news",
+            "events",
+            "company-anniversary",
+            "trade",
+          ])
           .optional(),
       }),
     ),

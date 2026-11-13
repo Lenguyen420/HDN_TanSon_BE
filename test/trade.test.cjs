@@ -205,6 +205,12 @@ test("post lifecycle validates merged edits and preserves first-publication noti
   assert.equal(created.status, 201);
   post = created.body.data;
   assert.equal(post.status, "DRAFT");
+  assert.equal(
+    (await request("/public/notification-feed?source=trade")).body.pagination
+      .total,
+    0,
+  );
+
   assert.equal((await request("/trade-posts/" + post.id)).status, 404);
   assert.equal(
     (
@@ -251,6 +257,47 @@ test("post lifecycle validates merged edits and preserves first-publication noti
     200,
   );
   assert.equal((await request("/trade-posts/" + post.id)).status, 200);
+  const publicTradeFeed = await request(
+    "/public/notification-feed?source=trade",
+  );
+  assert.equal(publicTradeFeed.status, 200);
+  assert.equal(publicTradeFeed.body.data.length, 1);
+  assert.equal(publicTradeFeed.body.data[0].tradePostId, post.id);
+  assert.equal(publicTradeFeed.body.data[0].scope, "public");
+  assert.equal(publicTradeFeed.body.data[0].contactPhone, undefined);
+  assert.ok(
+    (
+      await request("/admin/trade-notifications", "GET", undefined, admin)
+    ).body.data.some(
+      (n) => n.type === "TRADE_POST_SUBMITTED" && n.tradePostId === post.id,
+    ),
+  );
+  const ownNotices = (
+    await request("/trade-notifications", "GET", undefined, seller.accessToken)
+  ).body.data;
+  assert.ok(
+    ownNotices.some(
+      (n) => n.type === "TRADE_POST_PENDING" && n.tradePostId === post.id,
+    ),
+  );
+  assert.ok(
+    ownNotices.some(
+      (n) => n.type === "TRADE_POST_APPROVED" && n.tradePostId === post.id,
+    ),
+  );
+  assert.ok(
+    ownNotices.some(
+      (n) => n.type === "TRADE_POST_NEW" && n.tradePostId === post.id,
+    ),
+  );
+  assert.ok(
+    !(
+      await request("/trade-notifications", "GET", undefined, other.accessToken)
+    ).body.data.some(
+      (n) => n.type === "TRADE_POST_PENDING" && n.tradePostId === post.id,
+    ),
+  );
+
   assert.equal(
     (
       await request(
@@ -351,6 +398,43 @@ test("public expiry precedence and inactive categories apply consistently withou
     "TRADE_POST_CATEGORY_IN_USE",
   );
 });
+test("the public trade announcement disappears for hidden, expired and inactive-category posts", async () => {
+  const c = app.locals.services.trade,
+    original = await c.posts.findOne({ _id: post.id });
+  const feed = () => request("/public/notification-feed?source=trade");
+  assert.equal((await feed()).body.pagination.total, 1);
+  try {
+    await c.posts.updateOne({ _id: post.id }, { $set: { status: "PENDING" } });
+    assert.equal((await feed()).body.pagination.total, 0);
+    await c.posts.updateOne(
+      { _id: post.id },
+      { $set: { status: "PUBLISHED", expiresAt: new Date(0) } },
+    );
+    assert.equal((await feed()).body.pagination.total, 0);
+    await c.posts.updateOne({ _id: post.id }, { $set: { expiresAt: null } });
+    await c.categories.updateOne(
+      { _id: original.categoryId },
+      { $set: { isActive: false } },
+    );
+    assert.equal((await feed()).body.pagination.total, 0);
+  } finally {
+    await c.posts.updateOne(
+      { _id: post.id },
+      {
+        $set: {
+          status: original.status,
+          expiresAt: original.expiresAt ?? null,
+        },
+      },
+    );
+    await c.categories.updateOne(
+      { _id: original.categoryId },
+      { $set: { isActive: true } },
+    );
+  }
+  assert.equal((await feed()).body.data[0].id, "trade-post-new-" + post.id);
+});
+
 test("concurrent saves are idempotent and analytics never store raw IP", async () => {
   const results = await Promise.all(
     Array.from({ length: 3 }, () =>

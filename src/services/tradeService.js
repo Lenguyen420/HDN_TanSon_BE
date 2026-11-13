@@ -686,7 +686,10 @@ export class TradeService {
         "priceType",
         "price",
       ].some((k) => merged[k] !== old[k]);
-      if (old.status === "PUBLISHED" && significant) merged.status = "PENDING";
+      if (old.status === "PUBLISHED" && significant) {
+        merged.status = "PENDING";
+        merged.submittedAt = new Date();
+      }
       const removed = await this.releaseImages(
         old.imageIds || [],
         merged.imageIds || [],
@@ -719,6 +722,13 @@ export class TradeService {
         result.row,
         { submittedById: actor.id },
         { staff: true },
+      );
+    if (result.submitted)
+      await this.notify(
+        "TRADE_POST_PENDING",
+        result.row,
+        {},
+        { userId: result.row.ownerId },
       );
     await this.mediaService?.cleanup(result.removed);
     return ok(present(result.row));
@@ -765,6 +775,7 @@ export class TradeService {
             {},
           );
         changes = { status: rule[1] };
+        if (action === "submit") changes.submittedAt = now;
         if (action === "hide") changes.featured = false;
         if (["submit", "approve"].includes(action))
           changes.rejectedReason = null;
@@ -816,7 +827,14 @@ export class TradeService {
         "TRADE_POST_NEW",
         result.row,
         { community: result.row.purpose === "NON_PROFIT" },
-        { broadcast: true, excludeUserId: result.row.ownerId },
+        { broadcast: true },
+      );
+    if (action === "submit")
+      await this.notify(
+        "TRADE_POST_PENDING",
+        result.row,
+        {},
+        { userId: result.row.ownerId },
       );
     return ok(present(result.row));
   }

@@ -1,12 +1,68 @@
 import { createHash } from "node:crypto";
 import { companyAnniversaryPipeline } from "./companyAnniversary.js";
+import { publicExpiry } from "./tradeShared.js";
 // Public inbox entries are derived from public content, never from private
 // registration receipts or trade notifications. Stable IDs preserve read state.
 export class PublicNotificationService {
-  constructor(content, members, clock = () => new Date()) {
+  constructor(content, members, clock = () => new Date(), trade) {
     this.content = content;
     this.members = members;
     this.clock = clock;
+    this.trade = trade;
+  }
+  tradePipeline() {
+    return [
+      {
+        $match: {
+          status: "PUBLISHED",
+          deletedAt: null,
+          publishedAt: { $ne: null },
+          ...publicExpiry(),
+        },
+      },
+      {
+        $lookup: {
+          from: this.trade.categories.collectionName,
+          localField: "categoryId",
+          foreignField: "_id",
+          as: "tradeCategory",
+        },
+      },
+      {
+        $match: {
+          tradeCategory: { $elemMatch: { isActive: true, deletedAt: null } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          id: { $concat: ["trade-post-new-", "$_id"] },
+          title: { $concat: ["Tin giao thương mới: ", "$title"] },
+          description: "$summary",
+          paragraphs: ["$summary"],
+          category: { $literal: "Giao thương" },
+          scope: { $literal: "public" },
+          source: { $literal: "trade" },
+          date: {
+            $dateToString: {
+              date: "$publishedAt",
+              format: "%Y-%m-%d",
+              timezone: "Asia/Ho_Chi_Minh",
+            },
+          },
+          time: {
+            $dateToString: {
+              date: "$publishedAt",
+              format: "%H:%M",
+              timezone: "Asia/Ho_Chi_Minh",
+            },
+          },
+          createdAt: "$publishedAt",
+          image: { $ifNull: ["$thumbnailUrl", ""] },
+          tradePostId: "$_id",
+        },
+      },
+    ];
   }
   pipeline(source) {
     const service = this.content[source];
@@ -49,6 +105,13 @@ export class PublicNotificationService {
   }
   async list(query) {
     const pipeline = this.pipeline("notifications");
+    if (this.trade)
+      pipeline.push({
+        $unionWith: {
+          coll: this.trade.posts.collectionName,
+          pipeline: this.tradePipeline(),
+        },
+      });
     for (const source of ["news", "events"])
       pipeline.push({
         $unionWith: {
