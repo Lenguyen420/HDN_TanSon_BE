@@ -95,7 +95,7 @@ export async function createApp({
         createTokenService(config.get("JWT_SECRET")),
         config,
       ),
-      members: new MembersService(models.members),
+      members: new MembersService(models.members, imageStorage),
       zaloSdkProfiles: new ZaloSdkProfileService(models.zaloSdkProfiles),
       registrationNotifications: new RegistrationNotificationService(
         models.registrations,
@@ -126,6 +126,7 @@ export async function createApp({
         models.registrations,
         models.members,
         connection,
+        imageStorage,
       ),
     };
     services.publicNotifications = new PublicNotificationService(
@@ -206,6 +207,8 @@ export async function createApp({
     );
     // Content forms include a resized image up to 1.4 MB as a data URL.
     app.use("/api/v1/admin", (req, res, next) => {
+      if (/^\/(members|registrations)(\/|$)/.test(req.path))
+        return express.json({ limit: "3mb" })(req, res, next);
       if (
         /^\/(news|events|member-visits|notifications|banners)(\/|$)/.test(
           req.path,

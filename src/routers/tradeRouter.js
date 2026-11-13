@@ -68,6 +68,7 @@ export default function tradeRouter(services) {
   };
   const writeLimit = createRateLimiter(30),
     reviewLimit = createRateLimiter(10),
+    commentLimit = createRateLimiter(10),
     chatOpenLimit = createRateLimiter(30),
     chatLimit = createRateLimiter(60),
     saveLimit = createRateLimiter(60);
@@ -284,6 +285,49 @@ export default function tradeRouter(services) {
   );
   router.get("/trade-posts/:id/reviews/summary", async (req, res) =>
     res.json(await community.summary(pid(req))),
+  );
+  router.get("/trade-posts/:id/comments", auth(true), async (req, res) =>
+    res.json(await community.comments(pid(req), q(req), actor(req))),
+  );
+  router.get(
+    "/trade-posts/:id/comments/:commentId",
+    auth(true),
+    async (req, res) =>
+      res.json(
+        await community.comment(
+          pid(req),
+          parse(dto.uuid, req.params.commentId),
+        ),
+      ),
+  );
+  router.post(
+    "/trade-posts/:id/comments",
+    auth(),
+    commentLimit,
+    async (req, res) =>
+      res
+        .status(201)
+        .json(
+          await community.createComment(
+            pid(req),
+            parse(dto.reply, req.body).content,
+            actor(req),
+          ),
+        ),
+  );
+  router.put(
+    "/trade-posts/:id/comments/:commentId/reply",
+    auth(),
+    commentLimit,
+    async (req, res) =>
+      res.json(
+        await community.replyComment(
+          pid(req),
+          parse(dto.uuid, req.params.commentId),
+          parse(dto.reply, req.body).content,
+          actor(req),
+        ),
+      ),
   );
   router.get("/trade-posts/:id/reviews", auth(true), async (req, res) =>
     res.json(

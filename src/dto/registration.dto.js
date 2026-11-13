@@ -8,6 +8,7 @@ import {
   emailSchema,
   baseQuery,
   avatarSchema,
+  memberSchema,
 } from "./member.dto.js";
 const fields = {
   avatar: avatarSchema.optional(),
@@ -55,6 +56,9 @@ export const selfProfileSchema = z.strictObject({
 });
 export const registrationSchema = z.strictObject({
   ...fields,
+  avatar: memberSchema.shape.avatar,
+  businessLicenseImage:
+    publicRegistrationSchema.shape.businessLicenseImage.optional(),
   id: idSchema.optional(),
   date: dateSchema,
 });

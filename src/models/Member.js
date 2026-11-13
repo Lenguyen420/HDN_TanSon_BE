@@ -14,6 +14,8 @@ export const MemberSchema = new Schema(
     joinedAt: { type: String, required: true },
     companyAddress: String,
     companyFoundedAt: String,
+    businessLicenseFileId: { type: String, select: false },
+    businessLicenseOwnerId: { type: String, select: false },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     isBoard: { type: Boolean, default: false },
     position: { type: String, default: "Hội viên" },

@@ -11,6 +11,9 @@ export default function memberRouter(services) {
   const router = Router(),
     controller = memberController(services.members);
   router.use(authAdmin(services.auth));
+  router.get("/:id/business-license", async (req, res) =>
+    services.members.businessLicense(req.params.id, req, res),
+  );
   router.get("/", validateQuery(membersQuery), controller.list);
   router.post("/import", validateBody(importMembersSchema), controller.import);
   router.get("/:id", controller.get);

@@ -1,13 +1,22 @@
 import { NotFoundError, BadRequestError } from "../utils/httpError.js";
 import { randomUUID } from "node:crypto";
+import { BusinessLicenseStorage } from "./businessLicenseStorage.js";
 export function presentMember(row) {
-  const { _id, deletedAt, ...rest } = row;
-  return { ...rest, id: _id };
+  const {
+    _id,
+    deletedAt,
+    businessLicenseFileId,
+    businessLicenseOwnerId,
+    ...rest
+  } = row;
+  return { ...rest, id: _id, hasBusinessLicense: !!businessLicenseFileId };
 }
 export class MembersService {
   members;
-  constructor(members) {
+  constructor(members, imageStorage) {
     this.members = members;
+    this.imageStorage = imageStorage;
+    this.businessLicenses = new BusinessLicenseStorage(members.db.db);
   }
   async list(query) {
     const filter = { deletedAt: null };
@@ -24,6 +33,7 @@ export class MembersService {
     const [rows, total] = await Promise.all([
       this.members
         .find(filter)
+        .select("+businessLicenseFileId +businessLicenseOwnerId")
         .sort({ createdAt: -1, _id: 1 })
         .skip((query.page - 1) * query.limit)
         .limit(query.limit)
@@ -36,12 +46,15 @@ export class MembersService {
     };
   }
   async get(id) {
-    const row = await this.members.findOne({ _id: id, deletedAt: null }).lean();
+    const row = await this.members
+      .findOne({ _id: id, deletedAt: null })
+      .select("+businessLicenseFileId +businessLicenseOwnerId")
+      .lean();
     if (!row) throw new NotFoundError("Không tìm thấy hội viên.");
     return presentMember(row);
   }
   fields(dto) {
-    const { id, ...fields } = dto;
+    const { id, businessLicenseImage, ...fields } = dto;
     if (
       fields.birthDate &&
       fields.birthDate > new Date().toISOString().slice(0, 10)
@@ -61,24 +74,66 @@ export class MembersService {
     };
   }
   async create(dto) {
-    const row = await this.members.create({
-      ...this.fields(dto),
-      _id: dto.id || randomUUID(),
-    });
-    return { data: presentMember(row.toObject()) };
+    return this.saveWithAssets(dto.id || randomUUID(), dto);
   }
   async update(id, dto) {
     if (dto.id && dto.id !== id)
       throw new BadRequestError("Không thể đổi mã hội viên.");
-    const row = await this.members
-      .findOneAndUpdate(
-        { _id: id, deletedAt: null },
-        { $set: this.fields(dto) },
-        { new: true, runValidators: true },
-      )
+    const current = await this.members
+      .findOne({ _id: id, deletedAt: null })
       .lean();
-    if (!row) throw new NotFoundError("Không tìm thấy hội viên.");
-    return { data: presentMember(row) };
+    if (!current) throw new NotFoundError("Không tìm thấy hội viên.");
+    return this.saveWithAssets(id, dto, current);
+  }
+  async saveWithAssets(id, dto, current = null) {
+    const fields = this.fields(dto);
+    const avatar =
+      current && dto.avatar === current.avatar
+        ? {}
+        : await this.imageStorage.prepare(dto.avatar, "members");
+    let fileId;
+    try {
+      if (dto.avatar !== undefined && avatar.image !== undefined)
+        fields.avatar = avatar.image;
+      if (dto.businessLicenseImage) {
+        fileId = await this.businessLicenses.save(
+          `member:${id}`,
+          dto.businessLicenseImage,
+        );
+        fields.businessLicenseFileId = fileId;
+        fields.businessLicenseOwnerId = `member:${id}`;
+      }
+      const row = current
+        ? await this.members
+            .findOneAndUpdate(
+              { _id: id, deletedAt: null },
+              { $set: fields },
+              { new: true, runValidators: true },
+            )
+            .select("+businessLicenseFileId +businessLicenseOwnerId")
+            .lean()
+        : (await this.members.create({ ...fields, _id: id })).toObject();
+      if (!row) throw new NotFoundError("Không tìm thấy hội viên.");
+      return { data: presentMember(row) };
+    } catch (error) {
+      await this.imageStorage.discard(avatar);
+      if (fileId) await this.businessLicenses.discard(fileId);
+      throw error;
+    }
+  }
+  async businessLicense(id, req, res) {
+    const member = await this.members
+      .findOne({ _id: id, deletedAt: null })
+      .select("+businessLicenseFileId +businessLicenseOwnerId")
+      .lean();
+    if (!member?.businessLicenseFileId)
+      throw new NotFoundError("Hội viên chưa có ảnh giấy phép kinh doanh.");
+    await this.businessLicenses.serve(
+      member.businessLicenseFileId,
+      member.businessLicenseOwnerId || member.sourceRegistrationId,
+      req,
+      res,
+    );
   }
   async remove(id) {
     const row = await this.members

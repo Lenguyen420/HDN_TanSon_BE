@@ -25,6 +25,7 @@ export class TradeService {
       "saves",
       "reviews",
       "customer_replies",
+      "comments",
       "conversations",
       "messages",
       "events",
@@ -54,6 +55,7 @@ export class TradeService {
         { unique: true, partialFilterExpression: { deletedAt: null } },
       ),
       this.reviews.createIndex({ tradePostId: 1, status: 1, createdAt: -1 }),
+      this.comments.createIndex({ tradePostId: 1, createdAt: -1, _id: 1 }),
       this.conversations.createIndex(
         { tradePostId: 1, customerId: 1 },
         { unique: true },
@@ -294,6 +296,10 @@ export class TradeService {
     return ok(await this.enrich(row, actor));
   }
   async enrich(row, actor) {
+    const category = await this.categories.findOne(
+      { _id: row.categoryId },
+      { projection: { name: 1 } },
+    );
     const owner = await this.auth.users.findOne(
       { _id: row.ownerId },
       {
@@ -310,6 +316,7 @@ export class TradeService {
       : false;
     return {
       ...present(row),
+      categoryName: category?.name || row.category,
       owner: owner
         ? {
             id: owner._id,
@@ -421,7 +428,7 @@ export class TradeService {
         .toArray(),
       this.posts.countDocuments(filter),
     ]);
-    const [owners, saved] = await Promise.all([
+    const [owners, saved, categories] = await Promise.all([
       this.auth.users
         .find(
           { _id: { $in: [...new Set(rows.map((row) => row.ownerId))] } },
@@ -436,13 +443,23 @@ export class TradeService {
             })
             .toArray()
         : [],
+      this.categories
+        .find(
+          { _id: { $in: [...new Set(rows.map((row) => row.categoryId))] } },
+          { projection: { name: 1 } },
+        )
+        .toArray(),
     ]);
+    const categoryNames = new Map(
+      categories.map((category) => [category._id, category.name]),
+    );
     const ownersById = new Map(owners.map((owner) => [owner._id, owner])),
       savedIds = new Set(saved.map((row) => row.tradePostId));
     const data = rows.map((row) => {
       const owner = ownersById.get(row.ownerId);
       return {
         ...present(row),
+        categoryName: categoryNames.get(row.categoryId) || row.category,
         owner: owner
           ? {
               id: owner._id,

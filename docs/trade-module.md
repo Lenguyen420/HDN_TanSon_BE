@@ -68,6 +68,17 @@ Thông báo khác được đọc trong mục Giao thương của hai FE. Chưa 
 
 ## Kiểm tra
 
+### Bình luận và trả lời
+
+- `GET /api/v1/trade-posts/:id/comments?page=1&limit=20`: danh sách bình luận, mới nhất trước; trả thông tin người viết và câu trả lời của chủ tin.
+- `GET /api/v1/trade-posts/:id/comments/:commentId`: đọc đúng bình luận từ thông báo, kể cả bình luận nằm ở trang cũ.
+- `POST /api/v1/trade-posts/:id/comments` nhận `{content}` (1–500 ký tự sau khi trim). Cần phiên giao thương đã xác thực; không bắt buộc đánh giá sao. Có thể bình luận nhiều lần.
+- `PUT /api/v1/trade-posts/:id/comments/:commentId/reply` nhận `{content}`. Chỉ tài khoản người đăng tin được trả lời hoặc sửa câu trả lời; không nhận userId/ownerId từ client.
+- Chỉ tin đang công bố, còn hiệu lực và thuộc danh mục hoạt động mới đọc/ghi bình luận được. Bình luận lưu trong `trade_comments`, phân trang và giới hạn ghi 10 lần/phút theo IP.
+- Bình luận mới và thông báo `TRADE_COMMENT_RECEIVED` cho chủ tin được ghi trong cùng transaction. Câu trả lời và thông báo `TRADE_COMMENT_REPLIED` cho người bình luận cũng vậy. Người dùng tự bình luận tin của mình không nhận thông báo cho chính mình; cập nhật câu trả lời không đổi không tạo thông báo trùng.
+- Thông báo có `commentId`, mở đúng trang chi tiết và khu vực bình luận. Chuông và danh sách đang mở cập nhật mỗi 15 giây khi ứng dụng ở foreground. Đây là thông báo trong Mini App; không gửi Zalo OA push.
+- Giao diện mới có thẻ tin ngang, tab danh mục, sắp xếp, lưu tin, gọi điện, khu vực giao dịch, đánh giá sao và thanh liên hệ cố định. Tệp/ảnh vẫn chọn từ máy và dùng cơ chế tải lên hiện có; không thay đổi xác thực OA.
+
 - `npm test` backend chạy cả các trường hợp xác thực, version, trạng thái, hiệu lực, lưu tin đồng thời, điểm đánh giá, quyền riêng tư hội thoại và ảnh trong replica set tạm.
 - Admin: `npm test`, `npm run build`, `npm run lint`; có kiểm thử Host/origin và transport kiểm duyệt.
 - Mini App: `npm test`, `npm run build`; kiểm thử trao đổi receipt lấy JWT, browse công khai và DELETE 204.

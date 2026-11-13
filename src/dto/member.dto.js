@@ -45,7 +45,20 @@ export const avatarSchema = z.union([
 export const memberSchema = z.strictObject({
   id: idSchema.optional(),
   name: text(150).min(1),
-  avatar: avatarSchema.optional(),
+  avatar: z
+    .union([
+      avatarSchema,
+      z
+        .string()
+        .max(1_400_000)
+        .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
+    ])
+    .optional(),
+  businessLicenseImage: z
+    .string()
+    .max(1_400_000)
+    .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+    .optional(),
   zaloUserId: z
     .string()
     .trim()

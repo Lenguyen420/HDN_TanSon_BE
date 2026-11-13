@@ -22,11 +22,12 @@ export class RegistrationService {
   registrations;
   members;
   connection;
-  constructor(registrations, members, connection) {
+  constructor(registrations, members, connection, imageStorage) {
     this.registrations = registrations;
     this.members = members;
     this.connection = connection;
     this.businessLicenses = new BusinessLicenseStorage(connection.db);
+    this.imageStorage = imageStorage;
   }
   async initialize() {
     await Promise.all([this.registrations.init(), this.members.init()]);
@@ -69,13 +70,26 @@ export class RegistrationService {
   }
   async create(dto) {
     this.validateBirthDate(dto);
-    const { id, ...fields } = dto;
-    const row = await this.registrations.create({
-      ...fields,
-      _id: id || randomUUID(),
-      status: "pending",
-    });
-    return { data: present(row.toObject()) };
+    const { id = randomUUID(), businessLicenseImage, ...fields } = dto;
+    const avatar = await this.imageStorage.prepare(fields.avatar, "members");
+    let fileId;
+    try {
+      if (fields.avatar !== undefined) fields.avatar = avatar.image;
+      if (businessLicenseImage) {
+        fileId = await this.businessLicenses.save(id, businessLicenseImage);
+        fields.businessLicenseFileId = fileId;
+      }
+      const row = await this.registrations.create({
+        ...fields,
+        _id: id,
+        status: "pending",
+      });
+      return { data: present(row.toObject()) };
+    } catch (error) {
+      await this.imageStorage.discard(avatar);
+      if (fileId) await this.businessLicenses.discard(fileId);
+      throw error;
+    }
   }
   async submitPublic(dto) {
     const { notificationToken, businessLicenseImage, ...fields } = dto;
@@ -123,16 +137,36 @@ export class RegistrationService {
     this.validateBirthDate(dto);
     if (dto.id && dto.id !== id)
       throw new BadRequestError("Không thể đổi mã hồ sơ.");
-    const { id: ignored, ...fields } = dto;
-    const row = await this.registrations
-      .findOneAndUpdate(
-        { _id: id, status: "pending", deletedAt: null },
-        { $set: fields },
-        { new: true, runValidators: true },
-      )
+    const current = await this.registrations
+      .findOne({ _id: id, status: "pending", deletedAt: null })
       .lean();
-    if (!row) throw new ConflictError("Chỉ được sửa hồ sơ đang chờ duyệt.");
-    return { data: present(row) };
+    if (!current) throw new ConflictError("Chỉ được sửa hồ sơ đang chờ duyệt.");
+    const { id: ignored, businessLicenseImage, ...fields } = dto;
+    const avatar =
+      dto.avatar === undefined || dto.avatar === current.avatar
+        ? {}
+        : await this.imageStorage.prepare(dto.avatar, "members");
+    let fileId;
+    try {
+      if (avatar.image !== undefined) fields.avatar = avatar.image;
+      if (businessLicenseImage) {
+        fileId = await this.businessLicenses.save(id, businessLicenseImage);
+        fields.businessLicenseFileId = fileId;
+      }
+      const row = await this.registrations
+        .findOneAndUpdate(
+          { _id: id, status: "pending", deletedAt: null },
+          { $set: fields },
+          { new: true, runValidators: true },
+        )
+        .lean();
+      if (!row) throw new ConflictError("Chỉ được sửa hồ sơ đang chờ duyệt.");
+      return { data: present(row) };
+    } catch (error) {
+      await this.imageStorage.discard(avatar);
+      if (fileId) await this.businessLicenses.discard(fileId);
+      throw error;
+    }
   }
   async remove(id) {
     const row = await this.registrations
@@ -172,6 +206,8 @@ export class RegistrationService {
           {
             _id: memberId,
             sourceRegistrationId: id,
+            businessLicenseFileId: registration.businessLicenseFileId,
+            businessLicenseOwnerId: id,
             name: registration.fullName,
             avatar: registration.avatar || "",
             company: registration.company,

@@ -391,6 +391,175 @@ test("concurrent saves are idempotent and analytics never store raw IP", async (
     1,
   );
 });
+test("comments notify only the owner; owner replies notify the author and enforce post ownership", async () => {
+  const path = "/trade-posts/" + post.id + "/comments";
+  assert.equal(
+    (await request(path, "POST", { content: "Khách chưa xác thực" })).status,
+    401,
+  );
+  assert.equal(
+    (await request(path, "POST", { content: "  " }, customer.accessToken))
+      .status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(
+        path,
+        "POST",
+        { content: "a".repeat(501) },
+        customer.accessToken,
+      )
+    ).status,
+    400,
+  );
+  const made = await request(
+    path,
+    "POST",
+    { content: "Sản phẩm còn hàng không?" },
+    customer.accessToken,
+  );
+  assert.equal(made.status, 201);
+  const comment = made.body.data;
+  assert.equal(comment.userId, customer.user.id);
+  assert.equal(
+    (await request(path)).body.data[0].content,
+    "Sản phẩm còn hàng không?",
+  );
+  const sellerNotices = (
+    await request("/trade-notifications", "GET", undefined, seller.accessToken)
+  ).body.data;
+  assert.ok(
+    sellerNotices.some(
+      (n) => n.type === "TRADE_COMMENT_RECEIVED" && n.commentId === comment.id,
+    ),
+  );
+  const outsiderNotices = (
+    await request("/trade-notifications", "GET", undefined, other.accessToken)
+  ).body.data;
+  assert.ok(!outsiderNotices.some((n) => n.commentId === comment.id));
+  assert.equal(
+    (
+      await request(
+        path + "/" + comment.id + "/reply",
+        "PUT",
+        { content: "Giả chủ tin" },
+        other.accessToken,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(
+        path + "/" + comment.id + "/reply",
+        "PUT",
+        { content: "Còn hàng, mời bạn liên hệ." },
+        seller.accessToken,
+      )
+    ).status,
+    200,
+  );
+  const read = await request(path + "/" + comment.id);
+  assert.equal(read.body.data.replyContent, "Còn hàng, mời bạn liên hệ.");
+  assert.equal(read.body.data.user.displayName, "Khách B");
+  assert.equal(read.body.data.user.tokenHash, undefined);
+  const customerNotices = (
+    await request(
+      "/trade-notifications",
+      "GET",
+      undefined,
+      customer.accessToken,
+    )
+  ).body.data;
+  const notice = customerNotices.find(
+    (n) => n.type === "TRADE_COMMENT_REPLIED" && n.commentId === comment.id,
+  );
+  assert.ok(notice);
+  await request(
+    "/trade-notifications/read",
+    "PATCH",
+    { ids: [notice.id] },
+    customer.accessToken,
+  );
+  assert.equal(
+    (
+      await request(
+        "/trade-notifications",
+        "GET",
+        undefined,
+        customer.accessToken,
+      )
+    ).body.data.find((n) => n.id === notice.id).read,
+    true,
+  );
+  assert.equal(
+    (await request("/trade-posts/" + randomUUID() + "/comments/" + comment.id))
+      .status,
+    404,
+  );
+  // Sending an unchanged answer must not create duplicate notifications.
+  await request(
+    path + "/" + comment.id + "/reply",
+    "PUT",
+    { content: "Còn hàng, mời bạn liên hệ." },
+    seller.accessToken,
+  );
+  assert.equal(
+    await app.locals.services.trade.notifications.countDocuments({
+      commentId: comment.id,
+      type: "TRADE_COMMENT_REPLIED",
+    }),
+    1,
+  );
+});
+
+test("comment writes roll back when their private notification fails and hidden posts reject comments", async () => {
+  const c = app.locals.services.trade,
+    filter = { tradePostId: post.id };
+  const before = await c.comments.countDocuments(filter),
+    send = c.notifications.insertOne;
+  try {
+    c.notifications.insertOne = async () => {
+      throw Error("notification unavailable");
+    };
+    await assert.rejects(
+      c.community.createComment(
+        post.id,
+        "Không được lưu thiếu thông báo",
+        customer.user,
+      ),
+      /notification unavailable/,
+    );
+  } finally {
+    c.notifications.insertOne = send;
+  }
+  assert.equal(await c.comments.countDocuments(filter), before);
+  await c.posts.updateOne({ _id: post.id }, { $set: { status: "HIDDEN" } });
+  try {
+    assert.equal(
+      (await request("/trade-posts/" + post.id + "/comments")).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "/trade-posts/" + post.id + "/comments",
+          "POST",
+          { content: "Tin đã ẩn" },
+          customer.accessToken,
+        )
+      ).status,
+      404,
+    );
+  } finally {
+    await c.posts.updateOne(
+      { _id: post.id },
+      { $set: { status: "PUBLISHED" } },
+    );
+  }
+});
+
 test("reviews serialize aggregates, enforce unique active review and preserve hidden state", async () => {
   assert.equal(
     (

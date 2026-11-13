@@ -12,6 +12,126 @@ export class TradeCommunityService {
   constructor(core) {
     this.core = core;
   }
+  async comments(postId, query, actor) {
+    const c = this.core;
+    await c.publicPost(postId);
+    const filter = { tradePostId: postId };
+    const [rows, total] = await Promise.all([
+      c.comments
+        .find(filter)
+        .sort({ createdAt: -1, _id: 1 })
+        .skip((query.page - 1) * query.limit)
+        .limit(query.limit)
+        .toArray(),
+      c.comments.countDocuments(filter),
+    ]);
+    const users = await c.auth.users
+      .find(
+        { _id: { $in: rows.map((row) => row.userId) } },
+        { projection: { displayName: 1, avatarUrl: 1 } },
+      )
+      .toArray();
+    const byId = new Map(users.map((user) => [user._id, user]));
+    return {
+      ...page([], total, query),
+      data: rows.map((row) => ({
+        ...present(row),
+        user: present(byId.get(row.userId)),
+        isAuthor: row.userId === actor?.id,
+      })),
+    };
+  }
+  async createComment(postId, content, actor) {
+    const c = this.core;
+    return c.tx(async (session) => {
+      const visible = await c.publicPost(postId, session);
+      const post = await c.lockedPost(visible._id, session);
+      const row = {
+        _id: id(),
+        tradePostId: post._id,
+        userId: actor.id,
+        content,
+        createdAt: new Date(),
+        replyContent: null,
+        repliedAt: null,
+      };
+      await c.comments.insertOne(row, { session });
+      if (actor.id !== post.ownerId)
+        await c.notifications.insertOne(
+          {
+            _id: id(),
+            type: "TRADE_COMMENT_RECEIVED",
+            tradePostId: post._id,
+            slug: post.slug,
+            title: post.title,
+            commentId: row._id,
+            userId: post.ownerId,
+            createdAt: new Date(),
+            readBy: [],
+          },
+          { session },
+        );
+      return ok(present(row));
+    });
+  }
+  async comment(postId, commentId) {
+    const c = this.core;
+    await c.publicPost(postId);
+    const row = await c.comments.findOne({
+      _id: commentId,
+      tradePostId: postId,
+    });
+    if (!row) fail(404, "RESOURCE_NOT_FOUND", "Không tìm thấy bình luận.");
+    const user = await c.auth.users.findOne(
+      { _id: row.userId },
+      { projection: { displayName: 1, avatarUrl: 1 } },
+    );
+    return ok({ ...present(row), user: present(user) });
+  }
+  async replyComment(postId, commentId, content, actor) {
+    const c = this.core;
+    return c.tx(async (session) => {
+      const visible = await c.publicPost(postId, session);
+      const post = await c.lockedPost(visible._id, session);
+      if (post.ownerId !== actor.id)
+        fail(
+          403,
+          "RESOURCE_FORBIDDEN",
+          "Chỉ người đăng tin được trả lời bình luận.",
+        );
+      const old = await c.comments.findOne(
+        { _id: commentId, tradePostId: post._id },
+        { session },
+      );
+      if (!old) fail(404, "RESOURCE_NOT_FOUND", "Không tìm thấy bình luận.");
+      const changes = {
+        replyContent: content,
+        repliedAt: new Date(),
+        replyUserId: actor.id,
+      };
+      await c.comments.updateOne(
+        { _id: commentId },
+        { $set: changes },
+        { session },
+      );
+      if (old.userId !== actor.id && old.replyContent !== content)
+        await c.notifications.insertOne(
+          {
+            _id: id(),
+            type: "TRADE_COMMENT_REPLIED",
+            tradePostId: post._id,
+            slug: post.slug,
+            title: post.title,
+            commentId,
+            userId: old.userId,
+            createdAt: new Date(),
+            readBy: [],
+          },
+          { session },
+        );
+      return ok(present({ ...old, ...changes }));
+    });
+  }
   async save(value, actor, remove = false, context = {}) {
     const c = this.core;
     const result = await c.tx(async (session) => {

@@ -9,9 +9,15 @@ import { BadRequestError } from "../utils/httpError.js";
 export const defaultUploadDirectory = fileURLToPath(
   new URL("../../uploads/", import.meta.url),
 );
-export const imageFolders = ["news", "events", "member-visits", "banners"];
+export const imageFolders = [
+  "news",
+  "events",
+  "member-visits",
+  "banners",
+  "members",
+];
 export const uploadedImagePattern =
-  /^uploads\/(news|events|member-visits|banners)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
+  /^uploads\/(news|events|member-visits|banners|members)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
 
 export class ImageStorage {
   constructor(
