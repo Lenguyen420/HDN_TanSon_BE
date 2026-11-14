@@ -1,0 +1,18 @@
+[     362ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=db24864f:21551
+[     440ms] Object
+[    1614ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[    4860ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52162/30815.png:1
+[    4862ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52164/30814.png:1
+[    4862ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52164/30815.png:1
+[    4862ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52163/30815.png:1
+[    4862ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52163/30814.png:1
+[    4862ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52162/30814.png:1
+[   15815ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[   29387ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52163/30814.png:1
+[   29388ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52163/30815.png:1
+[   29388ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52162/30814.png:1
+[   29388ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52164/30814.png:1
+[   29388ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52164/30815.png:1
+[   29389ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52162/30815.png:1
+[   30704ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[   45712ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
