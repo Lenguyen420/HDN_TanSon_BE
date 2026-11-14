@@ -1,0 +1,134 @@
+[    4604ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=db24864f:21551
+[    4690ms] Object
+[    6794ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[    6795ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[    6795ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[    6795ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[   79053ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:5175/node_modules/.vite/deps/chunk-PJEEZAML.js?v=db24864f:21551
+[   79106ms] Object
+[   79500ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[   85282ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[   85282ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[   85284ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[   85284ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[   86441ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[   86441ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[   86442ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[   86442ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[   94332ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  109312ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  117275ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  117275ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  117275ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  117275ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  118390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  118390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  118390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  118390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  121178ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  121178ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  121178ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  121179ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  122188ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  122188ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  122188ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  122188ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  123335ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  124465ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  127278ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  127278ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  127278ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  127279ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  127332ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  128390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  128390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  128390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  128390ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  129376ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  131210ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  131210ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  131210ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  131211ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  131342ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  132502ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  132503ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  132503ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  132503ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  133283ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  133283ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  133284ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  133284ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  133344ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  134414ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  134415ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  134415ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  134415ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  135340ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  139329ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  154339ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  163840ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  171982ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  172163ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  187201ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  198579ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  198580ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  198580ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  198580ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  198665ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  202256ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  217213ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  232206ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  247197ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  254871ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  254871ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  254872ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  254872ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  255738ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  257600ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  257601ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  257601ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  257601ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  257750ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  258790ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30787.png:1
+[  258791ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52180/30788.png:1
+[  258791ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30787.png:1
+[  258791ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52179/30788.png:1
+[  262207ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  265734ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  277191ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  282823ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7696.png:1
+[  282824ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7696.png:1
+[  282824ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13044/7697.png:1
+[  282824ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/14/13045/7697.png:1
+[  292199ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  307250ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  322212ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  337209ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  352196ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  367259ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  382212ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  397195ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  412217ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  427232ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  442232ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  457224ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  472203ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  487203ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  502209ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  517215ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  532330ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  547210ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  562246ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  577252ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  592208ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  607259ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  622228ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  637335ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  653365ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  667191ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  683007ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  697215ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  712203ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  727322ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  742404ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
+[  757216ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-notifications?limit=100:1
