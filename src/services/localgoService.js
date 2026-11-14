@@ -11,9 +11,10 @@ const isAdmin = (actor) => ["SUPER_ADMIN", "STAFF"].includes(actor?.role);
 const present = ({ _id, __v, auditLog, ...row }) => ({ ...row, id: _id });
 const publicFilter = { deletedAt: null, status: "published", isVisible: true };
 export class LocalGoService {
-  constructor(places, categories) {
+  constructor(places, categories, imageStorage) {
     this.places = places;
     this.categories = categories;
+    this.imageStorage = imageStorage;
   }
   async initialize() {
     await this.categories.init();
@@ -143,25 +144,57 @@ export class LocalGoService {
   audit(action, actor, reason = "") {
     return { action, actorId: actor.id, reason, at: new Date() };
   }
-  async create(dto, actor) {
-    return this.withCategory(dto.category, async (session) => {
-      const [row] = await this.places.create(
-        [
-          {
-            ...dto,
-            _id: randomUUID(),
-            memberId: actor.memberId || null,
-            createdBy: actor.id,
-            status: "published",
-            isVisible: true,
-            publishedAt: new Date(),
-            auditLog: [this.audit("create", actor)],
-          },
-        ],
-        { session },
+  async withImages(dto, current, operation) {
+    const prepared = [];
+    const fields = { ...dto };
+    const prepare = async (value) => {
+      const saved = await this.imageStorage.prepare(value, "localgo");
+      prepared.push(saved);
+      return saved.image;
+    };
+    try {
+      if (
+        fields.coverImage !== undefined &&
+        fields.coverImage !== current?.coverImage
+      )
+        fields.coverImage = await prepare(fields.coverImage);
+      if (fields.images !== undefined) {
+        const images = [];
+        for (const value of fields.images)
+          images.push(
+            current?.images?.includes(value) ? value : await prepare(value),
+          );
+        fields.images = images;
+      }
+      return await operation(fields);
+    } catch (error) {
+      await Promise.all(
+        prepared.map((item) => this.imageStorage.discard(item)),
       );
-      return { data: present(row.toObject()) };
-    });
+      throw error;
+    }
+  }
+  async create(dto, actor) {
+    return this.withImages(dto, null, (fields) =>
+      this.withCategory(fields.category, async (session) => {
+        const [row] = await this.places.create(
+          [
+            {
+              ...fields,
+              _id: randomUUID(),
+              memberId: actor.memberId || null,
+              createdBy: actor.id,
+              status: "published",
+              isVisible: true,
+              publishedAt: new Date(),
+              auditLog: [this.audit("create", actor)],
+            },
+          ],
+          { session },
+        );
+        return { data: present(row.toObject()) };
+      }),
+    );
   }
   async update(id, dto, actor, action = "update", reason = "") {
     const row = await this.places.findOne({ _id: id, deletedAt: null }).lean();
@@ -172,21 +205,25 @@ export class LocalGoService {
       deletedAt: null,
       ...(!isAdmin(actor) ? { memberId: actor.memberId } : {}),
     };
-    const perform = async (session) => {
-      const updated = await this.places
-        .findOneAndUpdate(
-          filter,
-          {
-            $set: dto,
-            $push: { auditLog: this.audit(action, actor, reason) },
-          },
-          { new: true, runValidators: true, ...(session ? { session } : {}) },
-        )
-        .lean();
-      if (!updated) throw new NotFoundError("Không tìm thấy địa điểm.");
-      return { data: present(updated) };
-    };
-    return dto.category ? this.withCategory(dto.category, perform) : perform();
+    return this.withImages(dto, row, async (fields) => {
+      const perform = async (session) => {
+        const updated = await this.places
+          .findOneAndUpdate(
+            filter,
+            {
+              $set: fields,
+              $push: { auditLog: this.audit(action, actor, reason) },
+            },
+            { new: true, runValidators: true, ...(session ? { session } : {}) },
+          )
+          .lean();
+        if (!updated) throw new NotFoundError("Không tìm thấy địa điểm.");
+        return { data: present(updated) };
+      };
+      return fields.category
+        ? this.withCategory(fields.category, perform)
+        : perform();
+    });
   }
   async remove(id, actor) {
     await this.update(

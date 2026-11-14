@@ -61,6 +61,7 @@ before(async () => {
   process.env.ADMIN_USERNAME = "localgo_admin";
   process.env.ADMIN_PASSWORD = secret();
   runtime = await import("../src/main.js");
+  process.env.IMAGE_STORAGE = "mongodb";
   app = await runtime.createApp();
   app.set("trust proxy", 1);
   server = await runtime.listen(app, 0, "127.0.0.1");
@@ -446,4 +447,93 @@ test("concurrent category deletion and assignment cannot create dangling referen
     deletedAt: null,
   });
   assert.equal(Boolean(category.deletedAt) && places > 0, false);
+});
+
+test("LocalGo uploads cover/gallery through shared GridFS storage and cleans failed saves", async () => {
+  clientIp = "192.0.2.3";
+  const bytes = Buffer.alloc(220000);
+  Buffer.from("89504e470d0a1a0a", "hex").copy(bytes);
+  const image = "data:image/png;base64," + bytes.toString("base64");
+  const created = await request(
+    "/localgo/places",
+    "POST",
+    { ...valid(), coverImage: image, images: [image] },
+    admin,
+  );
+  assert.equal(created.status, 201);
+  const row = created.body.data;
+  assert.match(row.coverImage, /^uploads\/localgo\/[a-f0-9-]{36}\.png$/);
+  assert.match(row.images[0], /^uploads\/localgo\/[a-f0-9-]{36}\.png$/);
+  const stored = await app.locals.models.localgoPlaces.findById(row.id).lean();
+  assert.equal(stored.coverImage.startsWith("data:"), false);
+  const response = await fetch(new URL("/" + row.coverImage, base));
+  assert.equal(response.status, 200);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  const files = app.locals.db.db.collection("images.files");
+  const count = await files.countDocuments();
+  assert.equal(
+    (
+      await request(
+        "/localgo/places/" + row.id,
+        "PATCH",
+        { name: "Đổi tên", coverImage: row.coverImage, images: row.images },
+        admin,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(await files.countDocuments(), count);
+  const invalid =
+    "data:image/png;base64," + Buffer.from("not a PNG").toString("base64");
+  assert.equal(
+    (
+      await request(
+        "/localgo/places",
+        "POST",
+        { ...valid(), coverImage: image, images: [image, invalid] },
+        admin,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(await files.countDocuments(), count);
+  assert.equal(
+    (
+      await request(
+        "/localgo/places",
+        "POST",
+        { ...valid(), category: "does-not-exist", coverImage: image },
+        admin,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(await files.countDocuments(), count);
+  assert.equal(
+    (await request("/localgo/places/" + row.id, "DELETE", undefined, admin))
+      .status,
+    204,
+  );
+  assert.equal(await files.countDocuments(), count);
+});
+
+test("map resolver requires admin and returns an explicit pin without Google network access", async () => {
+  clientIp = "192.0.2.4";
+  const path = "/admin/localgo/resolve-map";
+  const body = {
+    url: "https://www.google.com/maps/place/Test/@11,107,15z/data=!3d10.815!4d106.63",
+  };
+  assert.equal((await request(path, "POST", body)).status, 401);
+  assert.equal((await request(path, "POST", body, owner.token)).status, 401);
+  const resolved = await request(path, "POST", body, admin);
+  assert.equal(resolved.status, 200);
+  assert.deepEqual(resolved.body.data, { latitude: 10.815, longitude: 106.63 });
+  assert.equal(
+    (await request(path, "POST", { url: "https://127.0.0.1/" }, admin)).status,
+    400,
+  );
+  assert.equal(
+    (await request(path, "POST", { url: body.url, extra: true }, admin)).status,
+    400,
+  );
 });

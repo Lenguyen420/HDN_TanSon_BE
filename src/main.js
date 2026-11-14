@@ -90,6 +90,7 @@ export async function createApp({
       localgo: new LocalGoService(
         models.localgoPlaces,
         models.localgoCategories,
+        imageStorage,
       ),
       localIntroductionVideos,
       introductionVideos,
@@ -231,6 +232,9 @@ export async function createApp({
     });
     // Registration includes one resized license photo, kept below Vercel's payload limit.
     app.use("/api/v1/public/registrations", express.json({ limit: "2mb" }));
+    // LocalGo may contain a resized cover and gallery. Keep the combined body
+    // under Vercel's request limit and leave other modules' limits unchanged.
+    app.use("/api/v1/localgo/places", express.json({ limit: "3mb" }));
     app.use(express.json({ limit: "256kb" }));
     app.use("/api/v1", createApiRateLimiter(), appRouter(services));
     app.use((req, res) =>

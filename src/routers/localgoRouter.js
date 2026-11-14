@@ -1,3 +1,5 @@
+import { resolveLocalGoMap } from "../services/localgoMaps.js";
+import { BadRequestError } from "../utils/httpError.js";
 import { Router } from "express";
 import authAdmin from "../middlewares/authAdmin.js";
 import authLocalGo from "../middlewares/authLocalGo.js";
@@ -74,6 +76,11 @@ export default function localgoRouter(services) {
     res.status(204).end();
   });
   router.use("/admin/localgo", admin);
+  router.post("/admin/localgo/resolve-map", writeLimit, async (req, res) => {
+    if (typeof req.body?.url !== "string" || Object.keys(req.body).length !== 1)
+      throw new BadRequestError("Vui lòng gửi liên kết Google Maps.");
+    res.json({ data: await resolveLocalGoMap(req.body.url) });
+  });
   router.get("/admin/localgo/categories", async (req, res) =>
     res.json({ data: await c.listCategories() }),
   );

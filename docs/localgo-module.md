@@ -19,3 +19,11 @@ Deletion is soft and returns 409 if any nondeleted place still references the ca
 Deploy Backend before Admin. Admin reuses its authenticated association proxy and Axios client. This change adds no approval workflow or new public write routes.
 
 Validation: `npm run build`; `node --test test/localgo.test.cjs` uses an isolated MongoDB replica set, including category CRUD, authorization, default compatibility, referenced-category protection, and concurrent deletion/assignment.
+
+## Images and Google Maps links
+
+Place create/update accepts resized JPG/PNG/WebP data URLs for `coverImage` and `images`, alongside existing URLs. Each inline image is at most 1,400,000 characters; the combined LocalGo place JSON body is limited to 3 MiB. Admin reuses ImagePicker to select/preview local files and resize before saving. The shared ImageStorage writes into `uploads/localgo` on disk or the existing GridFS image bucket on Vercel. MongoDB place documents contain image paths, never inline bytes. Failed preparations or database saves discard newly written files; updates retain unchanged references and soft deletion preserves existing files.
+
+`POST /admin/localgo/resolve-map` accepts `{ url }` and returns `{ data: { latitude, longitude } }`. It requires admin authentication and the existing write rate limiter. Explicit place coordinates take precedence over camera coordinates. Supported links include Google Maps coordinate queries, place data and short sharing links (`maps.app.goo.gl`, `goo.gl/maps`). Short links follow at most six redirects with a 12-second total deadline. Every redirect must stay on an allowed HTTPS Google Maps host; arbitrary origins, credentials and custom ports are rejected. Address-only links or place links containing only camera coordinates return 400 with instructions to share an explicit pin; network failures return 502. No geocoding API key is required. The resolver does not save or change a place.
+
+Admin resolves a pasted link automatically, recenters the preview on the pin, and saves GeoJSON as `[longitude, latitude]`. Manual coordinate fields remain in an optional section. Deploy Backend before Admin.

@@ -19,10 +19,15 @@ const plainText = (max) =>
     (value) => !/[<>]/.test(value),
     "Nội dung chỉ hỗ trợ văn bản thuần.",
   );
-const image = avatarSchema.refine(
-  (value) => Boolean(value),
-  "Ảnh không được trống.",
-);
+const image = z
+  .union([
+    avatarSchema,
+    z
+      .string()
+      .max(1_400_000)
+      .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/),
+  ])
+  .refine((value) => Boolean(value), "Ảnh không được trống.");
 const url = z.union([
   z.literal(""),
   z
