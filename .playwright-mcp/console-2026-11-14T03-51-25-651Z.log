@@ -37,3 +37,4 @@
 [  330704ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
 [  345676ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
 [  362943ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  375679ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
