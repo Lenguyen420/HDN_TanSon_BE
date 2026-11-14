@@ -17,8 +17,8 @@ export default function localgoRouter(services) {
     res.set("Cache-Control", "no-store");
     next();
   });
-  router.get("/localgo/categories", (req, res) =>
-    res.json({ data: dto.categories }),
+  router.get("/localgo/categories", async (req, res) =>
+    res.json({ data: await c.listCategories() }),
   );
   router.get(
     "/localgo/places",
@@ -74,6 +74,36 @@ export default function localgoRouter(services) {
     res.status(204).end();
   });
   router.use("/admin/localgo", admin);
+  router.get("/admin/localgo/categories", async (req, res) =>
+    res.json({ data: await c.listCategories() }),
+  );
+  router.post(
+    "/admin/localgo/categories",
+    writeLimit,
+    validateBody(dto.categoryCreate),
+    async (req, res) =>
+      res.status(201).json({ data: await c.createCategory(req.body) }),
+  );
+  router.patch(
+    "/admin/localgo/categories/:code",
+    writeLimit,
+    validateBody(dto.categoryPatch),
+    async (req, res) =>
+      res.json({
+        data: await c.updateCategory(
+          dto.categoryCode.parse(req.params.code),
+          req.body,
+        ),
+      }),
+  );
+  router.delete(
+    "/admin/localgo/categories/:code",
+    writeLimit,
+    async (req, res) => {
+      await c.removeCategory(dto.categoryCode.parse(req.params.code));
+      res.status(204).end();
+    },
+  );
   router.get(
     "/admin/localgo/places",
     validateQuery(dto.placesQuery),

@@ -1,14 +1,16 @@
 const { test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID, randomBytes } = require("node:crypto");
-const { MongoMemoryServer } = require("mongodb-memory-server");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 let mongo, runtime, app, server, base, admin, owner, other, guest;
+let clientIp = "192.0.2.1";
 const secret = () => randomBytes(32).toString("hex");
 async function request(path, method = "GET", body, token) {
   const response = await fetch(base + path, {
     method,
     headers: {
       "Content-Type": "application/json",
+      "X-Forwarded-For": clientIp,
       ...(token ? { Authorization: "Bearer " + token } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -53,13 +55,14 @@ const valid = () => ({
   coverImage: "https://example.com/cover.png",
 });
 before(async () => {
-  mongo = await MongoMemoryServer.create();
+  mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   process.env.MONGODB_URI = mongo.getUri("localgo_test");
   process.env.JWT_SECRET = secret();
   process.env.ADMIN_USERNAME = "localgo_admin";
   process.env.ADMIN_PASSWORD = secret();
   runtime = await import("../src/main.js");
   app = await runtime.createApp();
+  app.set("trust proxy", 1);
   server = await runtime.listen(app, 0, "127.0.0.1");
   base = "http://127.0.0.1:" + server.address().port + "/api/v1";
   admin = (
@@ -294,4 +297,153 @@ test("LocalGo rechecks membership revocation, supports Zalo identity and indexes
   });
   assert.equal(nearby.length, 2);
   assert.equal((await request("/localgo/categories")).body.data.length, 11);
+});
+
+test("LocalGo categories persist, authorize writes, validate references and preserve legacy codes", async () => {
+  clientIp = "192.0.2.2";
+  const path = "/admin/localgo/categories";
+  assert.equal(
+    (await request(path, "POST", { code: "moi", name: "Mới" })).status,
+    401,
+  );
+  assert.equal(
+    (await request(path, "POST", { code: "moi", name: "Mới" }, owner.token))
+      .status,
+    401,
+  );
+  for (const body of [
+    { code: "../bad", name: "Tên" },
+    { code: "new", name: " " },
+    { code: "new", name: "<b>Tên</b>" },
+    { code: "new", name: "Tên", extra: true },
+  ])
+    assert.equal((await request(path, "POST", body, admin)).status, 400);
+  const category = { code: "the-thao", name: "Thể thao" };
+  assert.equal((await request(path, "POST", category, admin)).status, 201);
+  assert.equal((await request(path, "POST", category, admin)).status, 409);
+  assert.equal(
+    (await request(path, "GET", undefined, admin)).body.data.some(
+      (row) => row.code === category.code,
+    ),
+    true,
+  );
+  assert.equal(
+    (
+      await request(
+        path + "/the-thao",
+        "PATCH",
+        { name: "Thể thao & sức khỏe" },
+        admin,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request(
+        path + "/the-thao",
+        "PATCH",
+        { code: "doi-ma", name: "Tên" },
+        admin,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await request(path + "/missing", "PATCH", { name: "Tên" }, admin)).status,
+    404,
+  );
+  assert.equal(
+    (await request(path + "/missing", "DELETE", undefined, admin)).status,
+    404,
+  );
+  const created = await request(
+    "/localgo/places",
+    "POST",
+    { ...valid(), category: category.code },
+    admin,
+  );
+  assert.equal(created.status, 201);
+  assert.equal(
+    (await request("/localgo/places?category=the-thao")).body.pagination.total,
+    1,
+  );
+  const placePath = "/localgo/places/" + created.body.data.id;
+  assert.equal(
+    (
+      await request(
+        placePath + "/visibility",
+        "PATCH",
+        { isVisible: false },
+        admin,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await request(path + "/the-thao", "DELETE", undefined, admin)).status,
+    409,
+  );
+  assert.equal(
+    (await request(placePath, "DELETE", undefined, admin)).status,
+    204,
+  );
+  assert.equal(
+    (await request(path + "/the-thao", "DELETE", undefined, admin)).status,
+    204,
+  );
+  assert.equal(
+    (
+      await request(
+        "/localgo/places",
+        "POST",
+        { ...valid(), category: "the-thao" },
+        admin,
+      )
+    ).status,
+    400,
+  );
+  assert.equal((await request(path, "POST", category, admin)).status, 409);
+  assert.equal(
+    (await request(path + "/du-lich", "PATCH", { name: "Du lịch mới" }, admin))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request(path + "/khac", "DELETE", undefined, admin)).status,
+    204,
+  );
+  await app.locals.services.localgo.initialize();
+  const categories = (await request("/localgo/categories")).body.data;
+  assert.equal(
+    categories.some((row) => row.code === "khac" || row.code === "the-thao"),
+    false,
+  );
+  assert.equal(
+    categories.find((row) => row.code === "du-lich").name,
+    "Du lịch mới",
+  );
+  assert.equal((await request("/localgo/places?category=an-uong")).status, 200);
+});
+
+test("concurrent category deletion and assignment cannot create dangling references", async () => {
+  const service = app.locals.services.localgo;
+  const actor = await app.locals.services.auth.authenticate(admin);
+  await service.createCategory({ code: "race-test", name: "Đồng thời" });
+  const results = await Promise.allSettled([
+    service.create({ ...valid(), category: "race-test" }, actor),
+    service.removeCategory("race-test"),
+  ]);
+  assert.equal(
+    results.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  const category = await app.locals.models.localgoCategories
+    .findById("race-test")
+    .lean();
+  const places = await app.locals.models.localgoPlaces.countDocuments({
+    category: "race-test",
+    deletedAt: null,
+  });
+  assert.equal(Boolean(category.deletedAt) && places > 0, false);
 });

@@ -37,9 +37,15 @@ const url = z.union([
       );
     }, "URL phải sử dụng HTTP(S)."),
 ]);
+export const categoryCode = text(100).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const categoryCreate = z.strictObject({
+  code: categoryCode,
+  name: plainText(120).min(1),
+});
+export const categoryPatch = z.strictObject({ name: plainText(120).min(1) });
 export const placeCreate = z.strictObject({
   name: plainText(200).min(1),
-  category: z.enum(categories.map(({ code }) => code)),
+  category: categoryCode,
   description: plainText(1000).min(1),
   content: plainText(20000).optional(),
   address: plainText(500).min(1),
@@ -82,6 +88,6 @@ export const placePatch = placeCreate
   );
 export const placesQuery = z.strictObject({
   ...baseQuery,
-  category: z.enum(categories.map(({ code }) => code)).optional(),
+  category: categoryCode.optional(),
 });
 export { idSchema };

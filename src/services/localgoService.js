@@ -1,12 +1,93 @@
 import { randomUUID } from "node:crypto";
-import { HttpError, NotFoundError } from "../utils/httpError.js";
+import { categories as defaultCategories } from "../dto/localgo.dto.js";
+import {
+  BadRequestError,
+  ConflictError,
+  HttpError,
+  NotFoundError,
+} from "../utils/httpError.js";
 
 const isAdmin = (actor) => ["SUPER_ADMIN", "STAFF"].includes(actor?.role);
 const present = ({ _id, __v, auditLog, ...row }) => ({ ...row, id: _id });
 const publicFilter = { deletedAt: null, status: "published", isVisible: true };
 export class LocalGoService {
-  constructor(places) {
+  constructor(places, categories) {
     this.places = places;
+    this.categories = categories;
+  }
+  async initialize() {
+    await this.categories.init();
+    // Insert missing defaults once; never overwrite renamed or deleted categories.
+    await this.categories.bulkWrite(
+      defaultCategories.map(({ code, name }, order) => ({
+        updateOne: {
+          filter: { _id: code },
+          update: {
+            $setOnInsert: { name, order, revision: 0, deletedAt: null },
+          },
+          upsert: true,
+          timestamps: false,
+        },
+      })),
+    );
+  }
+  async listCategories() {
+    const rows = await this.categories
+      .find({ deletedAt: null })
+      .sort({ order: 1, createdAt: 1, _id: 1 })
+      .lean();
+    return rows.map((row) => ({ code: row._id, name: row.name }));
+  }
+  async createCategory({ code, name }) {
+    await this.categories.create({ _id: code, name });
+    return { code, name };
+  }
+  async updateCategory(code, { name }) {
+    const row = await this.categories
+      .findOneAndUpdate(
+        { _id: code, deletedAt: null },
+        { $set: { name } },
+        { new: true, runValidators: true },
+      )
+      .lean();
+    if (!row) throw new NotFoundError("Không tìm thấy danh mục.");
+    return { code: row._id, name: row.name };
+  }
+  async removeCategory(code) {
+    await this.places.db.transaction(async (session) => {
+      const row = await this.categories.findOneAndUpdate(
+        { _id: code, deletedAt: null },
+        { $inc: { revision: 1 } },
+        { session },
+      );
+      if (!row) throw new NotFoundError("Không tìm thấy danh mục.");
+      const used = await this.places
+        .exists({ category: code, deletedAt: null })
+        .session(session);
+      if (used)
+        throw new ConflictError(
+          "Danh mục đang có địa điểm sử dụng. Hãy chuyển hoặc xóa các địa điểm trước.",
+        );
+      await this.categories.updateOne(
+        { _id: code },
+        { $set: { deletedAt: new Date() } },
+        { session },
+      );
+    });
+  }
+  async withCategory(code, operation) {
+    return this.places.db.transaction(async (session) => {
+      // Touch the same category document as deletion so concurrent assignments
+      // cannot leave a live place referring to a deleted category.
+      const category = await this.categories.findOneAndUpdate(
+        { _id: code, deletedAt: null },
+        { $inc: { revision: 1 } },
+        { session },
+      );
+      if (!category)
+        throw new BadRequestError("Danh mục không tồn tại hoặc đã bị xóa.");
+      return operation(session);
+    });
   }
   scope(actor, mode) {
     if (mode === "public") return { ...publicFilter };
@@ -63,17 +144,24 @@ export class LocalGoService {
     return { action, actorId: actor.id, reason, at: new Date() };
   }
   async create(dto, actor) {
-    const row = await this.places.create({
-      ...dto,
-      _id: randomUUID(),
-      memberId: actor.memberId || null,
-      createdBy: actor.id,
-      status: "published",
-      isVisible: true,
-      publishedAt: new Date(),
-      auditLog: [this.audit("create", actor)],
+    return this.withCategory(dto.category, async (session) => {
+      const [row] = await this.places.create(
+        [
+          {
+            ...dto,
+            _id: randomUUID(),
+            memberId: actor.memberId || null,
+            createdBy: actor.id,
+            status: "published",
+            isVisible: true,
+            publishedAt: new Date(),
+            auditLog: [this.audit("create", actor)],
+          },
+        ],
+        { session },
+      );
+      return { data: present(row.toObject()) };
     });
-    return { data: present(row.toObject()) };
   }
   async update(id, dto, actor, action = "update", reason = "") {
     const row = await this.places.findOne({ _id: id, deletedAt: null }).lean();
@@ -84,18 +172,21 @@ export class LocalGoService {
       deletedAt: null,
       ...(!isAdmin(actor) ? { memberId: actor.memberId } : {}),
     };
-    const updated = await this.places
-      .findOneAndUpdate(
-        filter,
-        {
-          $set: dto,
-          $push: { auditLog: this.audit(action, actor, reason) },
-        },
-        { new: true, runValidators: true },
-      )
-      .lean();
-    if (!updated) throw new NotFoundError("Không tìm thấy địa điểm.");
-    return { data: present(updated) };
+    const perform = async (session) => {
+      const updated = await this.places
+        .findOneAndUpdate(
+          filter,
+          {
+            $set: dto,
+            $push: { auditLog: this.audit(action, actor, reason) },
+          },
+          { new: true, runValidators: true, ...(session ? { session } : {}) },
+        )
+        .lean();
+      if (!updated) throw new NotFoundError("Không tìm thấy địa điểm.");
+      return { data: present(updated) };
+    };
+    return dto.category ? this.withCategory(dto.category, perform) : perform();
   }
   async remove(id, actor) {
     await this.update(

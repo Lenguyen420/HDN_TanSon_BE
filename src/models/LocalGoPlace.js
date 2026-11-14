@@ -1,5 +1,4 @@
 import { Schema } from "mongoose";
-import { categories } from "../dto/localgo.dto.js";
 
 export const LocalGoPlaceSchema = new Schema(
   {
@@ -8,7 +7,6 @@ export const LocalGoPlaceSchema = new Schema(
     category: {
       type: String,
       required: true,
-      enum: categories.map(({ code }) => code),
     },
     description: { type: String, required: true },
     content: { type: String, default: "" },
