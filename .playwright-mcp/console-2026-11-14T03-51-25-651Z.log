@@ -16,3 +16,24 @@
 [   29389ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://tile.openstreetmap.org/16/52162/30815.png:1
 [   30704ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
 [   45712ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[   63887ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[   75989ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[   94386ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  105660ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  120692ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  135822ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  150671ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  165673ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  180677ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  195682ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  210698ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  225704ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  241430ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  255715ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  270657ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  285683ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  300941ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  315728ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  330704ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  345676ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
+[  362943ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://127.0.0.1:5175/api/v1/trade-session:1
