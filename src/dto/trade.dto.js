@@ -140,14 +140,17 @@ export const reorder = z.strictObject({
 });
 export const reviewFields = {
   rating: z.number().int().min(1).max(5),
-  content: text(500),
+  content: z.string().trim().max(500),
   imageIds: z
     .array(uuid)
     .max(3)
     .refine((ids) => new Set(ids).size === ids.length)
     .optional(),
 };
-export const reviewCreate = z.strictObject(reviewFields);
+export const reviewCreate = z.strictObject({
+  ...reviewFields,
+  content: reviewFields.content.optional().default(""),
+});
 export const reviewPatch = z.strictObject({
   rating: reviewFields.rating.optional(),
   content: reviewFields.content.optional(),

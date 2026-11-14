@@ -4,6 +4,8 @@ import { LocalIntroductionVideoStorage } from "./services/localIntroductionVideo
 import createEventAttendanceModel from "./models/EventAttendance.js";
 import { EventAttendanceService } from "./services/eventAttendanceService.js";
 import mongoose from "mongoose";
+import createLocalGoPlaceModel from "./models/LocalGoPlace.js";
+import { LocalGoService } from "./services/localgoService.js";
 import { EventFileService } from "./services/eventFileService.js";
 import express from "express";
 import cors from "cors";
@@ -66,6 +68,7 @@ export async function createApp({
     );
     await imageStorage.initialize();
     const models = {
+      localgoPlaces: createLocalGoPlaceModel(connection),
       admins: createAdminModel(connection),
       sessions: createSessionModel(connection),
       members: createMemberModel(connection),
@@ -82,6 +85,7 @@ export async function createApp({
       uploadDirectory,
     );
     const services = {
+      localgo: new LocalGoService(models.localgoPlaces),
       localIntroductionVideos,
       introductionVideos,
       eventFiles: new EventFileService(
@@ -158,6 +162,7 @@ export async function createApp({
       services.memberAccess,
     );
     await Promise.all([
+      models.localgoPlaces.init(),
       services.trade.initialize(),
       introductionVideos.initialize(),
       models.eventAttendance.init(),

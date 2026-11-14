@@ -1,0 +1,16 @@
+{
+  "source": "su_kien_phuong_tan_son_10_mau.json",
+  "sourceSha256": "44a2c8c53651bf63ab92dcaf1b3ae06f32d9a719d34af7f6d3c2639d018488a4",
+  "mode": "preview",
+  "notes": [
+    "Ảnh trống dùng logo Hội.",
+    "Giờ từng mục lịch trình tự phân chia từ khung giờ trong file mẫu.",
+    "Chuẩn hóa tên Hội Doanh nghiệp Phường Tân Sơn.",
+    "Không ghi đè sự kiện đã tồn tại, kể cả bản đã xóa mềm."
+  ],
+  "total": 10,
+  "existingMatches": 10,
+  "inserted": [],
+  "skipped": [],
+  "verified": 0
+}

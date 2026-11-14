@@ -1,0 +1,57 @@
+{
+  "source": "su_kien_phuong_tan_son_10_mau.json",
+  "sourceSha256": "44a2c8c53651bf63ab92dcaf1b3ae06f32d9a719d34af7f6d3c2639d018488a4",
+  "mode": "applied",
+  "notes": [
+    "Ảnh trống dùng logo Hội.",
+    "Giờ từng mục lịch trình tự phân chia từ khung giờ trong file mẫu.",
+    "Chuẩn hóa tên Hội Doanh nghiệp Phường Tân Sơn.",
+    "Không ghi đè sự kiện đã tồn tại, kể cả bản đã xóa mềm."
+  ],
+  "total": 10,
+  "existingMatches": 0,
+  "inserted": [
+    {
+      "id": "import-event-f3c3ceec17218ab263df3f16",
+      "title": "Hội nghị kết nối giao thương doanh nghiệp Phường Tân Sơn"
+    },
+    {
+      "id": "import-event-f2197d86ab51aeb86fdb5f97",
+      "title": "Ngày hội Đại đoàn kết toàn dân tộc"
+    },
+    {
+      "id": "import-event-7d1aaf0a66be73ee93edcdcc",
+      "title": "Hội thảo chuyển đổi số dành cho doanh nghiệp"
+    },
+    {
+      "id": "import-event-b17eaa4dd81052868b64c953",
+      "title": "Chương trình giao lưu doanh nhân và khởi nghiệp"
+    },
+    {
+      "id": "import-event-0702ecfc0a24ec5b24ca5363",
+      "title": "Ngày hội việc làm và tư vấn hướng nghiệp"
+    },
+    {
+      "id": "import-event-c78500c1a65cda2cb72e5a2e",
+      "title": "Hội nghị phổ biến chính sách hỗ trợ doanh nghiệp"
+    },
+    {
+      "id": "import-event-2f16dbeb0fe77fe594c6455f",
+      "title": "Chương trình thiện nguyện Vì cộng đồng Tân Sơn"
+    },
+    {
+      "id": "import-event-8968c47b325a8ddb9aa2c43a",
+      "title": "Hội chợ trưng bày và giới thiệu sản phẩm địa phương"
+    },
+    {
+      "id": "import-event-5006b90635d701f42a3791c2",
+      "title": "Giải giao lưu thể thao doanh nhân Tân Sơn"
+    },
+    {
+      "id": "import-event-e7504064096ced167bc389cf",
+      "title": "Hội nghị tổng kết hoạt động Hội Doanh nghiệp năm 2026"
+    }
+  ],
+  "skipped": [],
+  "verified": 10
+}

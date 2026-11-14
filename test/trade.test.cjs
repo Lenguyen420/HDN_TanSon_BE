@@ -660,13 +660,13 @@ test("reviews serialize aggregates, enforce unique active review and preserve hi
     request(
       "/trade-posts/" + post.id + "/reviews",
       "POST",
-      { rating: 5, content: "Kết nối hiệu quả" },
+      { rating: 5, content: "" },
       customer.accessToken,
     ),
     request(
       "/trade-posts/" + post.id + "/reviews",
       "POST",
-      { rating: 3, content: "Thông tin hữu ích" },
+      { rating: 3 },
       other.accessToken,
     ),
   ]);
@@ -675,6 +675,8 @@ test("reviews serialize aggregates, enforce unique active review and preserve hi
     JSON.stringify(results),
   );
   const review = results[0].body.data;
+  assert.equal(review.content, "");
+  assert.equal(results[1].body.data.content, "");
   assert.equal(
     (await app.locals.services.trade.posts.findOne({ _id: post.id }))
       .averageRating,
