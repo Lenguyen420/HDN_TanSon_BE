@@ -12,8 +12,7 @@ import {
   manualPaymentSchema,
   decisionSchema,
 } from "../dto/membershipFee.dto.js";
-import { HttpError } from "../utils/httpError.js";
-import { readCookie, zaloSessionCookie } from "./zaloOAuthRouter.js";
+
 import { createRateLimiter } from "../middlewares/rateLimit.js";
 export default function membershipFeeRouter(services) {
   const router = Router(),
@@ -78,21 +77,29 @@ export default function membershipFeeRouter(services) {
           ),
         ),
     );
-  member.use(noStore, createRateLimiter(60), async (req, res, next) => {
-    const header = req.headers.authorization || "",
-      cookie = readCookie(req, zaloSessionCookie);
-    const token = header.startsWith("Bearer ")
-      ? header.slice(7)
-      : cookie
-        ? await services.zaloOAuth.accessToken(cookie)
-        : "";
-    const identity = await services.memberAccess.identity(token);
-    if (!identity.member)
-      throw new HttpError(
-        403,
-        "Tài khoản Zalo chưa liên kết hội viên đang hoạt động. Vui lòng liên hệ Ban thư ký.",
-      );
-    res.locals.memberId = identity.member._id;
+  member.use(noStore, createRateLimiter(60));
+  member.post(
+    "/session",
+    createRateLimiter(20),
+    validateBody(
+      z.strictObject({
+        tokens: z
+          .array(z.string().regex(/^[a-f0-9]{64}$/))
+          .min(1)
+          .max(20),
+      }),
+    ),
+    async (req, res) => {
+      res.json({
+        data: await services.membershipFeeAuth.session(req.body.tokens),
+      });
+    },
+  );
+  member.use(async (req, res, next) => {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    const member = await services.membershipFeeAuth.authenticate(token);
+    res.locals.memberId = member._id;
     next();
   });
   member.get(

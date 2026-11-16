@@ -1,9 +1,18 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { randomBytes } = require("node:crypto");
+const { randomBytes, createHash } = require("node:crypto");
+const receiptHash = (value) => createHash("sha256").update(value).digest("hex");
+const receipts = Object.fromEntries(
+  ["a", "b", "pending", "rejected", "inactive", "deleted"].map((key) => [
+    key,
+    randomBytes(32).toString("hex"),
+  ]),
+);
+const feeTokens = {};
 const { MongoMemoryReplSet } = require("mongodb-memory-server");
 let mongo, app, server, runtime, base, admin;
 async function request(path, method = "GET", body, token = admin) {
+  token = feeTokens[token] || token;
   const response = await fetch(base + path, {
     method,
     headers: {
@@ -34,19 +43,6 @@ test.before(async () => {
   app = await runtime.createApp();
   server = await runtime.listen(app, 0, "127.0.0.1");
   base = "http://127.0.0.1:" + server.address().port + "/api/v1";
-  app.locals.services.memberAccess.transport = async (_url, options) => ({
-    ok: ["member-a-token", "member-b-token", "unlinked"].includes(
-      options.headers.access_token,
-    ),
-    json: async () => ({
-      id:
-        options.headers.access_token === "member-a-token"
-          ? "111111"
-          : options.headers.access_token === "member-b-token"
-            ? "222222"
-            : "333333",
-    }),
-  });
   await app.locals.models.members.create([
     {
       _id: "member-a",
@@ -70,6 +66,70 @@ test.before(async () => {
       status: "inactive",
     },
   ]);
+  app.locals.services.memberAccess.transport = async () => {
+    throw new Error("Fee authentication must not call Zalo Graph");
+  };
+  await app.locals.models.registrations.create([
+    ...["a", "b"].map((suffix) => ({
+      _id: "fee-registration-" + suffix,
+      fullName: "Member " + suffix,
+      company: "Company",
+      phone: "0900000001",
+      date: "2026-11-16",
+      status: "approved",
+      memberId: "member-" + suffix,
+      notificationTokenHash: receiptHash(receipts[suffix]),
+    })),
+    {
+      _id: "fee-registration-pending",
+      fullName: "Pending",
+      company: "Company",
+      phone: "0900000002",
+      date: "2026-11-16",
+      status: "pending",
+      notificationTokenHash: receiptHash(receipts.pending),
+    },
+    {
+      _id: "fee-registration-rejected",
+      fullName: "Rejected",
+      company: "Company",
+      phone: "0900000003",
+      date: "2026-11-16",
+      status: "rejected",
+      notificationTokenHash: receiptHash(receipts.rejected),
+    },
+    {
+      _id: "fee-registration-inactive",
+      fullName: "Inactive",
+      company: "Company",
+      phone: "0900000004",
+      date: "2026-11-16",
+      status: "approved",
+      memberId: "member-inactive",
+      notificationTokenHash: receiptHash(receipts.inactive),
+    },
+    {
+      _id: "fee-registration-deleted",
+      fullName: "Deleted",
+      company: "Company",
+      phone: "0900000005",
+      date: "2026-11-16",
+      status: "approved",
+      deletedAt: new Date(),
+      notificationTokenHash: receiptHash(receipts.deleted),
+    },
+  ]);
+  for (const suffix of ["a", "b"]) {
+    const feeLogin = await request(
+      "/membership-fees/session",
+      "POST",
+      { tokens: [receipts[suffix]] },
+      null,
+    );
+    assert.equal(feeLogin.status, 200);
+    feeTokens["member-" + suffix + "-token"] = feeLogin.body.data.accessToken;
+  }
+
   const login = await request(
     "/auth/admin-login",
     "POST",
@@ -103,7 +163,7 @@ test("membership fees: publication, ownership, proof, atomic decisions and audit
     assert.equal(
       (await request("/membership-fees/my-dues", "GET", undefined, "unlinked"))
         .status,
-      403,
+      401,
     );
     assert.equal(
       (await request(root, "POST", campaign({ amount: 1.5 }))).status,
@@ -435,6 +495,159 @@ test("publication validates selected active members atomically", async () => {
     before,
   );
 });
+test("fee receipt sessions reject unapproved/invalid credentials and never call Zalo", async () => {
+  const login = (tokens) =>
+    request("/membership-fees/session", "POST", { tokens }, null);
+  assert.equal((await login([randomBytes(32).toString("hex")])).status, 401);
+  assert.equal((await login([receipts.deleted])).status, 401);
+  for (const key of ["pending", "rejected", "inactive"])
+    assert.equal((await login([receipts[key]])).status, 403);
+  assert.equal((await login([])).status, 400);
+  assert.equal((await login(["member-a"])).status, 400);
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/session",
+        "POST",
+        {
+          tokens: [receipts.pending],
+          memberId: "member-a",
+          status: "approved",
+        },
+        null,
+      )
+    ).status,
+    400,
+  );
+  const result = await login([receipts.pending, receipts.rejected, receipts.a]);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.data.member.id, "member-a");
+  const claims = JSON.parse(
+    Buffer.from(
+      result.body.data.accessToken.split(".")[1],
+      "base64url",
+    ).toString(),
+  );
+  assert.equal(claims.aud, "tanson-membership-fees");
+  assert.equal(claims.receiptHash, receiptHash(receipts.a));
+  assert.equal(claims.exp - claims.iat, 1800);
+  assert.equal(
+    (
+      await request(
+        "/trade-session",
+        "GET",
+        undefined,
+        result.body.data.accessToken,
+      )
+    ).status,
+    401,
+  );
+  const trade = await request(
+    "/trade-session",
+    "POST",
+    { tokens: [receipts.a] },
+    null,
+  );
+  assert.equal(trade.status, 200);
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues",
+        "GET",
+        undefined,
+        trade.body.data.accessToken,
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await request("/membership-fees/my-dues", "GET", undefined, admin)).status,
+    401,
+  );
+});
+test("fee sessions expire and are revoked when receipt or approval changes", async () => {
+  const { createTokenService } = await import("../src/config/jwt.js");
+  const expired = await createTokenService(process.env.JWT_SECRET).signAsync(
+    { sub: "fee-registration-a", receiptHash: receiptHash(receipts.a) },
+    {
+      issuer: "tanson-backend",
+      audience: "tanson-membership-fees",
+      expiresIn: -1,
+    },
+  );
+  assert.equal(
+    (await request("/membership-fees/my-dues", "GET", undefined, expired))
+      .status,
+    401,
+  );
+  const model = app.locals.models.registrations;
+  await model.updateOne(
+    { _id: "fee-registration-a" },
+    { $set: { notificationTokenHash: receiptHash("rotated") } },
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues",
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).status,
+    401,
+  );
+  await model.updateOne(
+    { _id: "fee-registration-a" },
+    {
+      $set: {
+        notificationTokenHash: receiptHash(receipts.a),
+        status: "rejected",
+      },
+    },
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues",
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).status,
+    403,
+  );
+  await model.updateOne(
+    { _id: "fee-registration-a" },
+    { $set: { status: "approved", deletedAt: new Date() } },
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues",
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).status,
+    401,
+  );
+  await model.updateOne(
+    { _id: "fee-registration-a" },
+    { $set: { deletedAt: null } },
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues",
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).status,
+    200,
+  );
+});
+
 test("membership revocation immediately removes fee access", async () => {
   await app.locals.models.members.updateOne(
     { _id: "member-a" },

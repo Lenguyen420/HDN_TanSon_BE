@@ -1,3 +1,4 @@
+import { MembershipFeeAuthService } from "./services/membershipFeeAuthService.js";
 import createMembershipFeeModels from "./models/MembershipFee.js";
 import { MembershipFeeService } from "./services/membershipFeeService.js";
 import { IntroductionVideoService } from "./services/introductionVideoService.js";
@@ -90,6 +91,11 @@ export async function createApp({
       uploadDirectory,
     );
     const services = {
+      membershipFeeAuth: new MembershipFeeAuthService(
+        models.registrations,
+        models.members,
+        createTokenService(config.get("JWT_SECRET")),
+      ),
       membershipFees: new MembershipFeeService(
         connection,
         models.membershipFees,
