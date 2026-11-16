@@ -27,8 +27,8 @@ export const campaignPatch = z.strictObject({
   paymentInstructions: text(5000).optional(),
   status: z.enum(["draft", "closed"]).optional(),
 });
-export const proofSchema = z.strictObject({
-  transactionRef: text(150).min(1),
+const proofFields = {
+  transactionRef: text(150).min(1).optional(),
   proofUrl: z
     .union([
       z.literal(""),
@@ -42,8 +42,27 @@ export const proofSchema = z.strictObject({
     ])
     .default(""),
   note: text(2000).default(""),
-});
-export const manualPaymentSchema = proofSchema.extend({
+};
+export const proofSchema = z
+  .strictObject({
+    ...proofFields,
+    proofImage: z
+      .string()
+      .max(1400000)
+      .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+      .optional(),
+  })
+  .refine(
+    (v) => Boolean(v.proofImage || v.transactionRef),
+    "Vui lòng chọn ảnh minh chứng.",
+  );
+export const manualPaymentSchema = z.strictObject({
+  ...proofFields,
+  proofImage: z
+    .string()
+    .max(1400000)
+    .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
+    .optional(),
   method: z.enum(["bank_transfer", "cash"]),
 });
 export const decisionSchema = z.strictObject({ note: text(2000).default("") });

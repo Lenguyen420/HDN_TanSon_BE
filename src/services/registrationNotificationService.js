@@ -157,6 +157,12 @@ export class RegistrationNotificationService {
         (a, b) =>
           b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
       );
+    if (this.membershipFees)
+      data.push(...(await this.membershipFees.memberNotifications(memberIds)));
+    data.sort(
+      (a, b) =>
+        b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
+    );
     return { data, profiles };
   }
   async updateProfile(id, dto) {

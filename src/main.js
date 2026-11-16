@@ -153,6 +153,7 @@ export async function createApp({
         imageStorage,
       ),
     };
+    services.registrationNotifications.membershipFees = services.membershipFees;
     services.publicNotifications = new PublicNotificationService(
       services.content,
       models.members,
@@ -250,6 +251,11 @@ export async function createApp({
     // LocalGo may contain a resized cover and gallery. Keep the combined body
     // under Vercel's request limit and leave other modules' limits unchanged.
     app.use("/api/v1/localgo/places", express.json({ limit: "3mb" }));
+    app.use("/api/v1/membership-fees/my-dues", express.json({ limit: "2mb" }));
+    app.use(
+      "/api/v1/admin/membership-fee-dues",
+      express.json({ limit: "2mb" }),
+    );
     app.use(express.json({ limit: "256kb" }));
     app.use("/api/v1", createApiRateLimiter(), appRouter(services));
     app.use((req, res) =>

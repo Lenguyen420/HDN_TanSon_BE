@@ -25,9 +25,22 @@ export default function membershipFeeRouter(services) {
     next();
   };
   admin.use(
-    ["/membership-fees", "/membership-fee-dues", "/membership-fee-payments"],
+    [
+      "/membership-fees",
+      "/membership-fee-dues",
+      "/membership-fee-payments",
+      "/membership-fee-inbox",
+    ],
     noStore,
     authAdmin(services.auth),
+  );
+  admin.get(
+    "/membership-fee-inbox",
+    validateQuery(z.strictObject(baseQuery)),
+    async (req, res) => res.json(await fees.adminInbox(res.locals.query)),
+  );
+  admin.get("/membership-fee-payments/:id/proof", async (req, res) =>
+    fees.serveProof(id(req), null, req, res),
   );
   admin.get(
     "/membership-fees",
@@ -102,6 +115,9 @@ export default function membershipFeeRouter(services) {
     res.locals.memberId = member._id;
     next();
   });
+  member.get("/payments/:id/proof", async (req, res) =>
+    fees.serveProof(id(req), res.locals.memberId, req, res),
+  );
   member.get(
     "/my-dues",
     validateQuery(z.strictObject(baseQuery)),

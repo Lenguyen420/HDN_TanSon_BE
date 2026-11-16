@@ -54,6 +54,8 @@ export default function createMembershipFeeModels(connection) {
       amount: Number,
       method: String,
       proofUrl: String,
+      proofFileId: { type: String, select: false },
+      proofHash: { type: String, select: false },
       transactionRef: String,
       note: String,
       status: { type: String, enum: ["pending", "confirmed", "rejected"] },

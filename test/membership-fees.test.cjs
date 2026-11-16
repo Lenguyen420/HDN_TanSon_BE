@@ -648,6 +648,363 @@ test("fee sessions expire and are revoked when receipt or approval changes", asy
   );
 });
 
+test("image proofs need no transaction code, stay private and produce stable fee notifications", async () => {
+  const { png } = require("./image-fixture.cjs");
+  const bytes = png(400, 400),
+    image = "data:image/png;base64," + bytes.toString("base64");
+  const title = "Hội phí có ảnh minh chứng";
+  const created = await request(
+    "/admin/membership-fees",
+    "POST",
+    campaign({ title }),
+  );
+  assert.equal(created.status, 201);
+  const campaignId = created.body.data.id;
+  const updates = (token) =>
+    request(
+      "/public/registration-notifications",
+      "POST",
+      { tokens: [token] },
+      null,
+    );
+  const before = await updates(receipts.a);
+  assert.equal(
+    before.body.data.some((n) => n.title.includes(title)),
+    false,
+  );
+  await request(
+    "/admin/membership-fees/" + campaignId + "/publish",
+    "POST",
+    {},
+  );
+  await request(
+    "/admin/membership-fees/" + campaignId + "/publish",
+    "POST",
+    {},
+  );
+  const list = await request("/admin/membership-fees/" + campaignId + "/dues");
+  const a = list.body.data.find((d) => d.memberId === "member-a"),
+    b = list.body.data.find((d) => d.memberId === "member-b");
+  const notifications = (await updates(receipts.a)).body.data.filter(
+    (n) => n.feeDueId === a.id,
+  );
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].scope, "private");
+  assert.equal(
+    (await updates(receipts.b)).body.data.some((n) => n.feeDueId === a.id),
+    false,
+  );
+  const submit = (id, token, body) =>
+    request(
+      "/membership-fees/my-dues/" + id + "/payment-proof",
+      "POST",
+      body,
+      token,
+    );
+  const files = () =>
+    app.locals.db.db.collection("membership_fee_proofs.files").countDocuments();
+  assert.equal(
+    (
+      await submit(a.id, "member-a-token", {
+        proofImage:
+          "data:image/png;base64," +
+          Buffer.from("invalid image bytes").toString("base64"),
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await submit(a.id, "member-a-token", { note: "Không có ảnh" })).status,
+    400,
+  );
+  const sent = await submit(a.id, "member-a-token", {
+    proofImage: image,
+    note: "Đã chuyển khoản",
+  });
+  assert.equal(sent.status, 201);
+  assert.equal(sent.body.data.status, "pending");
+  assert.equal(sent.body.data.proofFileId, undefined);
+  assert.equal(sent.body.data.proofHash, undefined);
+  assert.ok(sent.body.data.transactionRef.startsWith("HP-"));
+  const paymentId = sent.body.data.id;
+  const count = await files();
+  assert.equal(
+    (await submit(a.id, "member-a-token", { proofImage: image })).status,
+    409,
+  );
+  assert.equal(await files(), count);
+  const path = "/membership-fees/payments/" + paymentId + "/proof";
+  assert.equal((await request(path, "GET", undefined, null)).status, 401);
+  assert.equal(
+    (await request(path, "GET", undefined, "member-b-token")).status,
+    404,
+  );
+  const raw = await fetch(base + path, {
+    headers: { Authorization: "Bearer " + feeTokens["member-a-token"] },
+  });
+  assert.equal(raw.status, 200);
+  assert.equal(raw.headers.get("content-type"), "image/png");
+  assert.match(raw.headers.get("cache-control"), /no-store/);
+  assert.deepEqual(Buffer.from(await raw.arrayBuffer()), bytes);
+  const json = await request(
+    path + "?format=data",
+    "GET",
+    undefined,
+    "member-a-token",
+  );
+  assert.equal(json.body.data.image, image);
+  const adminImage = await fetch(
+    base + "/admin/membership-fee-payments/" + paymentId + "/proof",
+    { headers: { Authorization: "Bearer " + admin } },
+  );
+  assert.equal(adminImage.status, 200);
+  await adminImage.arrayBuffer();
+  assert.equal(
+    (
+      await request(
+        "/admin/membership-fee-inbox",
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).status,
+    401,
+  );
+  const inbox = (await request("/admin/membership-fee-inbox")).body;
+  assert.equal(inbox.data.filter((n) => n.paymentId === paymentId).length, 1);
+  assert.equal(
+    inbox.data.find((n) => n.paymentId === paymentId).status,
+    "pending",
+  );
+  assert.match(
+    inbox.data.find((n) => n.paymentId === paymentId).href,
+    /campaignId=/,
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues/" + a.id,
+        "GET",
+        undefined,
+        "member-a-token",
+      )
+    ).body.data.status,
+    "pending_confirmation",
+  );
+  assert.equal(
+    (
+      await request(
+        "/admin/membership-fee-payments/" + paymentId + "/confirm",
+        "POST",
+        {},
+      )
+    ).status,
+    200,
+  );
+  const duplicate = await submit(b.id, "member-b-token", { proofImage: image });
+  assert.equal(duplicate.status, 201);
+  assert.equal(
+    (
+      await request(
+        "/admin/membership-fee-payments/" + duplicate.body.data.id + "/confirm",
+        "POST",
+        {},
+      )
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request(
+        "/membership-fees/my-dues/" + b.id,
+        "GET",
+        undefined,
+        "member-b-token",
+      )
+    ).body.data.status,
+    "pending_confirmation",
+  );
+  assert.equal(
+    (await request("/admin/membership-fee-inbox")).body.data.find(
+      (n) => n.paymentId === paymentId,
+    ).status,
+    "approved",
+  );
+});
+
+test("admin manual collection accepts a local proof without a transaction code", async () => {
+  const { png } = require("./image-fixture.cjs");
+  const created = await request(
+    "/admin/membership-fees",
+    "POST",
+    campaign({ status: "published", targetMemberIds: ["member-a"] }),
+  );
+  const dues = await request(
+    "/admin/membership-fees/" + created.body.data.id + "/dues",
+  );
+  const due = dues.body.data[0],
+    bytes = png(401, 400);
+  const result = await request(
+    "/admin/membership-fee-dues/" + due.id + "/manual-payment",
+    "POST",
+    {
+      method: "bank_transfer",
+      proofImage: "data:image/png;base64," + bytes.toString("base64"),
+      note: "Thu thủ công",
+    },
+  );
+  assert.equal(result.status, 201);
+  assert.equal(result.body.data.status, "confirmed");
+  assert.ok(result.body.data.transactionRef.startsWith("HP-"));
+  assert.equal(result.body.data.proofFileId, undefined);
+  const detail = await request(
+    "/membership-fees/my-dues/" + due.id,
+    "GET",
+    undefined,
+    "member-a-token",
+  );
+  assert.equal(detail.body.data.status, "paid");
+  const image = await fetch(
+    base + "/admin/membership-fee-payments/" + result.body.data.id + "/proof",
+    { headers: { Authorization: "Bearer " + admin } },
+  );
+  assert.equal(image.status, 200);
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), bytes);
+});
+
+test("members receive private confirmation/rejection results with reasons and stable links", async () => {
+  const fees = app.locals.services.membershipFees,
+    reviewer = "reviewer-test";
+  const notices = async (receipt) =>
+    (
+      await request(
+        "/public/registration-notifications",
+        "POST",
+        { tokens: [receipt] },
+        null,
+      )
+    ).body.data;
+  const created = await fees.create(
+    campaign({ status: "published", title: "Thông báo kết quả đối soát" }),
+    reviewer,
+  );
+  const rows = await fees.listDues(created.data.id, { page: 1, limit: 100 });
+  const a = rows.data.find((d) => d.memberId === "member-a"),
+    b = rows.data.find((d) => d.memberId === "member-b");
+  const first = await fees.submit(a.id, "member-a", {
+    transactionRef: "RESULT-A1",
+    note: "Đã chuyển",
+  });
+  assert.equal(
+    (await notices(receipts.a)).some((n) =>
+      n.id.startsWith("fee-reviewed-" + first.data.id),
+    ),
+    false,
+  );
+  const noReason = await request(
+    "/admin/membership-fee-payments/" + first.data.id + "/reject",
+    "POST",
+    { note: "   " },
+  );
+  assert.equal(noReason.status, 400);
+  const reason = "Ảnh bị mờ, chưa thấy số tiền. Vui lòng gửi lại ảnh rõ hơn.";
+  await fees.decide(first.data.id, false, { note: reason }, reviewer);
+  let own = await notices(receipts.a);
+  const rejected = own.filter(
+    (n) => n.id === "fee-reviewed-" + first.data.id + "-rejected",
+  );
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].feeDueId, a.id);
+  assert.equal(rejected[0].scope, "private");
+  assert.ok(rejected[0].description.includes(reason));
+  assert.ok(rejected[0].paragraphs.some((p) => p.includes(reason)));
+  assert.equal(
+    (await notices(receipts.b)).some(
+      (n) => n.id === rejected[0].id || n.description.includes(reason),
+    ),
+    false,
+  );
+  const retry = await fees.submit(a.id, "member-a", {
+    transactionRef: "RESULT-A2",
+    note: "Ảnh đã kiểm tra",
+  });
+  const confirmed = await fees.decide(
+    retry.data.id,
+    true,
+    { note: "Đã đối soát" },
+    reviewer,
+  );
+  own = await notices(receipts.a);
+  const paid = own.find(
+    (n) => n.id === "fee-reviewed-" + retry.data.id + "-confirmed",
+  );
+  assert.ok(paid);
+  assert.equal(paid.feeDueId, a.id);
+  assert.match(paid.description, /2\.000\.000/);
+  assert.ok(paid.description.includes(created.data.title));
+  assert.equal(
+    paid.createdAt,
+    new Date(confirmed.data.confirmedAt).toISOString(),
+  );
+  assert.ok(own.some((n) => n.id === rejected[0].id));
+  await assert.rejects(
+    fees.decide(retry.data.id, true, { note: "" }, reviewer),
+    (e) => e.status === 409,
+  );
+  assert.equal(
+    (await notices(receipts.a)).filter((n) => n.id === paid.id).length,
+    1,
+  );
+  const manual = await fees.manual(
+    b.id,
+    { method: "cash", note: "Đã nhận tiền mặt" },
+    reviewer,
+  );
+  assert.equal(
+    (await notices(receipts.b)).filter(
+      (n) => n.id === "fee-reviewed-" + manual.data.id + "-confirmed",
+    ).length,
+    1,
+  );
+  assert.equal(
+    (await notices(receipts.a)).some(
+      (n) => n.id === "fee-reviewed-" + manual.data.id + "-confirmed",
+    ),
+    false,
+  );
+  const other = await fees.create(
+    campaign({
+      status: "published",
+      title: "Không thông báo khi xác nhận lỗi",
+      targetMemberIds: ["member-a"],
+    }),
+    reviewer,
+  );
+  const due = (await fees.listDues(other.data.id, { page: 1, limit: 100 }))
+    .data[0];
+  const failed = await fees.submit(due.id, "member-a", {
+    transactionRef: "RESULT-A2",
+    note: "Trùng",
+  });
+  await assert.rejects(
+    fees.decide(failed.data.id, true, { note: "" }, reviewer),
+    (e) => e.code === 11000,
+  );
+  assert.equal(
+    (await notices(receipts.a)).some((n) =>
+      n.id.startsWith("fee-reviewed-" + failed.data.id),
+    ),
+    false,
+  );
+  await fees.update(other.data.id, { status: "closed" }, reviewer);
+  assert.equal(
+    (await notices(receipts.a)).some((n) =>
+      n.id.startsWith("fee-reviewed-" + failed.data.id),
+    ),
+    false,
+  );
+});
+
 test("membership revocation immediately removes fee access", async () => {
   await app.locals.models.members.updateOne(
     { _id: "member-a" },

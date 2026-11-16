@@ -1,6 +1,18 @@
+import { MembershipFeeProofStorage } from "./membershipFeeProofStorage.js";
+import {
+  memberFeeNotifications,
+  adminFeeInbox,
+} from "./membershipFeeNotifications.js";
 import { randomUUID } from "node:crypto";
 import { HttpError } from "../utils/httpError.js";
-const present = ({ _id, __v, transactionKey, ...row }) => ({ id: _id, ...row });
+const present = ({
+  _id,
+  __v,
+  transactionKey,
+  proofFileId,
+  proofHash,
+  ...row
+}) => ({ id: _id, ...row });
 const memberCampaign = (c) =>
   Object.fromEntries(
     [
@@ -29,6 +41,7 @@ export class MembershipFeeService {
     this.connection = connection;
     Object.assign(this, models);
     this.members = members;
+    this.proofStorage = new MembershipFeeProofStorage(connection.db);
   }
   async initialize() {
     await Promise.all([
@@ -342,48 +355,90 @@ export class MembershipFeeService {
       },
     };
   }
+  async memberNotifications(memberIds) {
+    return memberFeeNotifications.call(this, memberIds);
+  }
+  async adminInbox(query) {
+    return adminFeeInbox.call(this, query);
+  }
+  async serveProof(paymentId, memberId, req, res) {
+    const payment = await this.payments
+      .findOne({ _id: paymentId, ...(memberId ? { memberId } : {}) })
+      .select("+proofFileId")
+      .lean();
+    if (!payment?.proofFileId)
+      throw new HttpError(404, "Không tìm thấy ảnh minh chứng.");
+    if (req.query.format === "data")
+      return res.json({
+        data: { image: await this.proofStorage.data(payment.proofFileId) },
+      });
+    return this.proofStorage.serve(payment.proofFileId, req, res);
+  }
   async submit(id, memberId, dto) {
-    return this.transaction(async (session) => {
-      const due = await this.dues
-        .findOne({ _id: id, memberId })
-        .session(session)
-        .lean();
-      if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
-      const campaign = await this.lock(due.campaignId, session);
-      if (campaign.status !== "published" || due.status !== "unpaid")
-        throw new HttpError(
-          409,
-          "Khoản phí đã xử lý, đang chờ xác nhận hoặc đã ngừng thu.",
+    const due = await this.dues.findOne({ _id: id, memberId }).lean();
+    if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
+    const paymentId = randomUUID(),
+      { proofImage, ...fields } = dto;
+    let stored;
+    if (proofImage)
+      stored = await this.proofStorage.save(paymentId, memberId, proofImage);
+    try {
+      return await this.transaction(async (session) => {
+        const due = await this.dues
+          .findOne({ _id: id, memberId })
+          .session(session)
+          .lean();
+        if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
+        const campaign = await this.lock(due.campaignId, session);
+        if (campaign.status !== "published" || due.status !== "unpaid")
+          throw new HttpError(
+            409,
+            "Khoản phí đã xử lý, đang chờ xác nhận hoặc đã ngừng thu.",
+          );
+        const [payment] = await this.payments.create(
+          [
+            {
+              ...fields,
+              ...stored,
+              _id: paymentId,
+              dueId: id,
+              memberId,
+              transactionRef: fields.transactionRef || "HP-" + paymentId,
+              proofUrl: stored
+                ? "/api/v1/membership-fees/payments/" + paymentId + "/proof"
+                : fields.proofUrl,
+              amount: due.amountDue,
+              method: "bank_transfer",
+              status: "pending",
+              audit: [log("submitted", memberId)],
+            },
+          ],
+          { session },
         );
-      const [payment] = await this.payments.create(
-        [
+        await this.dues.updateOne(
+          { _id: id },
           {
-            ...dto,
-            _id: randomUUID(),
-            dueId: id,
-            memberId,
-            amount: due.amountDue,
-            method: "bank_transfer",
-            status: "pending",
-            audit: [log("submitted", memberId)],
+            $set: { status: "pending_confirmation" },
+            $push: { audit: log("proof_submitted", memberId) },
           },
-        ],
-        { session },
-      );
-      await this.dues.updateOne(
-        { _id: id },
-        {
-          $set: { status: "pending_confirmation" },
-          $push: { audit: log("proof_submitted", memberId) },
-        },
-        { session },
-      );
-      return { data: present(payment.toObject()) };
-    });
+          { session },
+        );
+        return { data: present(payment.toObject()) };
+      });
+    } catch (error) {
+      if (stored) await this.proofStorage.discard(paymentId);
+      throw error;
+    }
   }
   async decide(id, confirmed, dto, actorId) {
+    if (!confirmed && !dto.note?.trim())
+      throw new HttpError(400, "Vui lòng nhập lý do từ chối minh chứng.");
     return this.transaction(async (session) => {
-      const payment = await this.payments.findById(id).session(session).lean();
+      const payment = await this.payments
+        .findById(id)
+        .select("+proofHash")
+        .session(session)
+        .lean();
       if (!payment) throw new HttpError(404, "Không tìm thấy thanh toán.");
       const due = await this.dues
         .findById(payment.dueId)
@@ -399,7 +454,11 @@ export class MembershipFeeService {
         confirmedBy: actorId,
         confirmedAt: at,
         ...(confirmed
-          ? { transactionKey: payment.transactionRef.trim().toUpperCase() }
+          ? {
+              transactionKey: payment.proofHash
+                ? "image:" + payment.proofHash
+                : payment.transactionRef.trim().toUpperCase(),
+            }
           : {}),
       };
       const row = await this.payments
@@ -429,48 +488,72 @@ export class MembershipFeeService {
     });
   }
   async manual(id, dto, actorId) {
-    return this.transaction(async (session) => {
-      const due = await this.dues.findById(id).session(session).lean();
-      if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
-      const campaign = await this.lock(due.campaignId, session);
-      if (campaign.status !== "published" || due.status !== "unpaid")
-        throw new HttpError(
-          409,
-          "Chỉ ghi nhận thủ công khoản chưa đóng đang mở thu.",
+    const due = await this.dues.findById(id).lean();
+    if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
+    const paymentId = randomUUID(),
+      { proofImage, ...fields } = dto;
+    let stored;
+    if (proofImage)
+      stored = await this.proofStorage.save(
+        paymentId,
+        due.memberId,
+        proofImage,
+      );
+    try {
+      return await this.transaction(async (session) => {
+        const due = await this.dues.findById(id).session(session).lean();
+        if (!due) throw new HttpError(404, "Không tìm thấy khoản hội phí.");
+        const campaign = await this.lock(due.campaignId, session);
+        if (campaign.status !== "published" || due.status !== "unpaid")
+          throw new HttpError(
+            409,
+            "Chỉ ghi nhận thủ công khoản chưa đóng đang mở thu.",
+          );
+        const at = new Date(),
+          reference = fields.transactionRef || "HP-" + paymentId;
+        const [payment] = await this.payments.create(
+          [
+            {
+              ...fields,
+              ...stored,
+              _id: paymentId,
+              dueId: id,
+              memberId: due.memberId,
+              amount: due.amountDue,
+              transactionRef: reference,
+              proofUrl: stored
+                ? "/api/v1/membership-fees/payments/" + paymentId + "/proof"
+                : fields.proofUrl,
+              status: "confirmed",
+              transactionKey: stored
+                ? "image:" + stored.proofHash
+                : reference.trim().toUpperCase(),
+              confirmedBy: actorId,
+              confirmedAt: at,
+              audit: [log("manual_confirmed", actorId, fields.note)],
+            },
+          ],
+          { session },
         );
-      const at = new Date();
-      const [payment] = await this.payments.create(
-        [
+        await this.dues.updateOne(
+          { _id: id },
           {
-            ...dto,
-            _id: randomUUID(),
-            dueId: id,
-            memberId: due.memberId,
-            amount: due.amountDue,
-            status: "confirmed",
-            transactionKey: dto.transactionRef.trim().toUpperCase(),
-            confirmedBy: actorId,
-            confirmedAt: at,
-            audit: [log("manual_confirmed", actorId, dto.note)],
+            $set: {
+              status: "paid",
+              paidAt: at,
+              confirmedBy: actorId,
+              paymentMethod: fields.method,
+              transactionRef: reference,
+            },
+            $push: { audit: log("manual_confirmed", actorId, fields.note) },
           },
-        ],
-        { session },
-      );
-      await this.dues.updateOne(
-        { _id: id },
-        {
-          $set: {
-            status: "paid",
-            paidAt: at,
-            confirmedBy: actorId,
-            paymentMethod: dto.method,
-            transactionRef: dto.transactionRef,
-          },
-          $push: { audit: log("manual_confirmed", actorId, dto.note) },
-        },
-        { session },
-      );
-      return { data: present(payment.toObject()) };
-    });
+          { session },
+        );
+        return { data: present(payment.toObject()) };
+      });
+    } catch (error) {
+      if (stored) await this.proofStorage.discard(paymentId);
+      throw error;
+    }
   }
 }
