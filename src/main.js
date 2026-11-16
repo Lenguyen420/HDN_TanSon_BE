@@ -1,3 +1,5 @@
+import createMembershipFeeModels from "./models/MembershipFee.js";
+import { MembershipFeeService } from "./services/membershipFeeService.js";
 import { IntroductionVideoService } from "./services/introductionVideoService.js";
 import { PublicNotificationService } from "./services/publicNotificationService.js";
 import { LocalIntroductionVideoStorage } from "./services/localIntroductionVideoStorage.js";
@@ -69,6 +71,7 @@ export async function createApp({
     );
     await imageStorage.initialize();
     const models = {
+      membershipFees: createMembershipFeeModels(connection),
       localgoPlaces: createLocalGoPlaceModel(connection),
       localgoCategories: createLocalGoCategoryModel(connection),
       admins: createAdminModel(connection),
@@ -87,6 +90,11 @@ export async function createApp({
       uploadDirectory,
     );
     const services = {
+      membershipFees: new MembershipFeeService(
+        connection,
+        models.membershipFees,
+        models.members,
+      ),
       localgo: new LocalGoService(
         models.localgoPlaces,
         models.localgoCategories,
@@ -168,6 +176,7 @@ export async function createApp({
       services.memberAccess,
     );
     await Promise.all([
+      services.membershipFees.initialize(),
       models.localgoPlaces.init(),
       services.localgo.initialize(),
       services.trade.initialize(),
