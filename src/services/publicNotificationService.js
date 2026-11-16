@@ -105,6 +105,13 @@ export class PublicNotificationService {
   }
   async list(query) {
     const pipeline = this.pipeline("notifications");
+    if (this.partners)
+      pipeline.push({
+        $unionWith: {
+          coll: this.partners.contributions.collection.name,
+          pipeline: this.partners.notificationPipeline(),
+        },
+      });
     if (this.trade)
       pipeline.push({
         $unionWith: {

@@ -12,6 +12,7 @@ export default function publicNotificationRouter(services) {
         ...baseQuery,
         source: z
           .enum([
+            "partners",
             "announcement",
             "news",
             "events",

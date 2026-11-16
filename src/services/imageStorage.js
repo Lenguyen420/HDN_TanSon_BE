@@ -16,9 +16,10 @@ export const imageFolders = [
   "banners",
   "members",
   "localgo",
+  "partners",
 ];
 export const uploadedImagePattern =
-  /^uploads\/(news|events|member-visits|banners|members|localgo)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
+  /^uploads\/(news|events|member-visits|banners|members|localgo|partners)\/[a-f0-9-]{36}\.(jpg|png|webp)$/;
 
 export class ImageStorage {
   constructor(
