@@ -36,7 +36,11 @@ const fields = {
   memberId: idSchema.nullable().default(null),
   isPublished: z.boolean().default(false),
 };
-export const partnerSchema = z.strictObject({ ...fields, requestId: z.uuid() });
+export const partnerSchema = z.strictObject({
+  ...fields,
+  requestId: z.uuid(),
+  sendNotification: z.boolean().default(false),
+});
 const patchFields = (fields) =>
   Object.fromEntries(
     Object.entries(fields).map(([key, schema]) => [
@@ -47,7 +51,10 @@ const patchFields = (fields) =>
       ).optional(),
     ]),
   );
-export const partnerPatch = z.strictObject(patchFields(fields));
+export const partnerPatch = z.strictObject({
+  ...patchFields(fields),
+  sendNotification: z.boolean().optional(),
+});
 const contributionFields = {
   title: text(250).min(1),
   type: z.enum(["money", "in_kind"]),

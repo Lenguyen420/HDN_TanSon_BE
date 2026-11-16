@@ -23,6 +23,10 @@ export default function createPartnerModels(connection) {
       address: String,
       website: String,
       memberId: { type: String, default: null },
+      notification: {
+        status: { type: String, enum: ["none", "sent"], default: "none" },
+        sentAt: Date,
+      },
     },
     { collection: "partners", timestamps: true, versionKey: false },
   );

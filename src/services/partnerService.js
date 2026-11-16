@@ -189,6 +189,37 @@ export class PartnerService {
           data: [
             { $skip: (query.page - 1) * query.limit },
             { $limit: query.limit },
+            {
+              $lookup: {
+                from: "partner_contributions",
+                let: { partnerId: "$_id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: ["$partnerId", "$$partnerId"] },
+                      isPublished: true,
+                      deletedAt: null,
+                    },
+                  },
+                  { $sort: { contributionDate: -1, _id: 1 } },
+                  { $limit: 3 },
+                  {
+                    $project: {
+                      _id: 0,
+                      id: "$_id",
+                      title: 1,
+                      type: 1,
+                      paymentMethod: 1,
+                      amount: 1,
+                      itemName: 1,
+                      quantity: 1,
+                      contributionDate: 1,
+                    },
+                  },
+                ],
+                as: "latestContributions",
+              },
+            },
           ],
           total: [{ $count: "count" }],
         },
@@ -262,7 +293,10 @@ export class PartnerService {
       return this.result(existing);
     }
     if (partnerId) await this.partner(partnerId, true);
-    const values = kind === "partner" ? input : this.normalize(input);
+    const values = kind === "partner" ? { ...input } : this.normalize(input);
+    if (kind === "partner") delete values.sendNotification;
+    if (kind === "partner" && input.sendNotification && !values.isPublished)
+      throw new BadRequestError("Công khai đơn vị trước khi gửi thông báo.");
     await this.references(values);
     if (kind !== "partner" && input.sendNotification)
       await this.canNotify(partnerId, values);
@@ -277,6 +311,14 @@ export class PartnerService {
         createdBy: actorId,
         updatedBy: actorId,
         audit: [audit("create", actorId)],
+        ...(kind === "partner"
+          ? {
+              notification: {
+                status: values.isPublished ? "sent" : "none",
+                ...(values.isPublished ? { sentAt: new Date() } : {}),
+              },
+            }
+          : {}),
         ...(kind !== "partner"
           ? {
               notification: {
@@ -354,6 +396,7 @@ export class PartnerService {
             ),
             ...input,
           });
+    if (kind === "partner") delete values.sendNotification;
     await this.references(values);
     const prepared = [];
     try {
@@ -362,7 +405,23 @@ export class PartnerService {
         $set: { ...values, updatedBy: actorId },
         $push: { audit: audit(remove ? "delete" : "update", actorId) },
       };
-      if (input.sendNotification) {
+      if (
+        kind === "partner" &&
+        !remove &&
+        (input.sendNotification ||
+          (values.isPublished === true && !current.isPublished))
+      ) {
+        if (!(values.isPublished ?? current.isPublished))
+          throw new BadRequestError(
+            "Công khai đơn vị trước khi gửi thông báo.",
+          );
+        if (current.notification?.status !== "sent")
+          Object.assign(update.$set, {
+            "notification.status": "sent",
+            "notification.sentAt": new Date(),
+          });
+      }
+      if (kind !== "partner" && input.sendNotification) {
         await this.canNotify(current.partnerId, values);
         if (current.notification?.status !== "sent")
           Object.assign(update.$set, {
@@ -432,6 +491,52 @@ export class PartnerService {
             },
           },
           createdAt: "$notification.sentAt",
+        },
+      },
+      {
+        $unionWith: {
+          coll: "partners",
+          pipeline: [
+            {
+              $match: {
+                deletedAt: null,
+                isPublished: true,
+                "notification.status": "sent",
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                id: { $concat: ["partner-published-", "$_id"] },
+                title: { $concat: ["Đơn vị đồng hành mới: ", "$name"] },
+                description: {
+                  $literal:
+                    "Hội trân trọng giới thiệu đơn vị đồng hành. Xem thông tin và các khoản đóng góp công khai.",
+                },
+                paragraphs: ["$description"],
+                image: "$logo",
+                category: { $literal: "Đơn vị đồng hành" },
+                scope: { $literal: "public" },
+                source: { $literal: "partners" },
+                partnerId: "$_id",
+                date: {
+                  $dateToString: {
+                    date: "$notification.sentAt",
+                    format: "%Y-%m-%d",
+                    timezone: "Asia/Ho_Chi_Minh",
+                  },
+                },
+                time: {
+                  $dateToString: {
+                    date: "$notification.sentAt",
+                    format: "%H:%M",
+                    timezone: "Asia/Ho_Chi_Minh",
+                  },
+                },
+                createdAt: "$notification.sentAt",
+              },
+            },
+          ],
         },
       },
     ];

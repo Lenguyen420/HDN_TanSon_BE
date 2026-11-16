@@ -217,6 +217,17 @@ test("partners: admin authorization, public totals, soft deletion, idempotency, 
     assert.equal(list.body.summary.inKindCount, 1);
     assert.equal(list.body.summary.totalPartners, 1);
     assert.equal(list.body.data[0].totalAmount, 60000000);
+    assert.equal(list.body.data[0].latestContributions.length, 3);
+    assert.ok(
+      list.body.data[0].latestContributions.some(
+        (c) => c.itemName === "Quà" && c.quantity === 100,
+      ),
+    );
+    assert.ok(
+      list.body.data[0].latestContributions.every(
+        (c) => !c.notification && !c.audit && !c.requestHash,
+      ),
+    );
     assert.ok(!JSON.stringify(list.body).includes("PRIVATE_"));
     assert.ok(!JSON.stringify(list.body).includes("createdBy"));
     assert.ok(!JSON.stringify(list.body).includes("memberId"));
@@ -230,10 +241,13 @@ test("partners: admin authorization, public totals, soft deletion, idempotency, 
     assert.equal((await req(`/partners/${draft.id}`)).status, 404);
     let feed = await req("/public/notification-feed?source=partners");
     assert.equal(feed.status, 200);
-    assert.equal(feed.body.data.length, 1);
-    assert.equal(feed.body.data[0].partnerId, id);
-    assert.equal(feed.body.data[0].contributionId, cashId);
-    const noticeId = feed.body.data[0].id;
+    assert.equal(feed.body.data.length, 2);
+    const contributionNotice = feed.body.data.find(
+      (n) => n.contributionId === cashId,
+    );
+    assert.equal(contributionNotice.partnerId, id);
+    assert.equal(contributionNotice.contributionId, cashId);
+    const noticeId = contributionNotice.id;
     const edited = await req(`/admin/contributions/${cashId}`, "PATCH", {
       amount: 30000000,
       title: "Đã sửa",
@@ -245,8 +259,11 @@ test("partners: admin authorization, public totals, soft deletion, idempotency, 
     assert.ok(edited.body.data.audit.length >= 2);
     assert.equal(edited.body.data.notification.status, "sent");
     feed = await req("/public/notification-feed?source=partners");
-    assert.equal(feed.body.data.length, 1);
-    assert.equal(feed.body.data[0].id, noticeId);
+    assert.equal(feed.body.data.length, 2);
+    assert.equal(
+      feed.body.data.find((n) => n.contributionId === cashId).id,
+      noticeId,
+    );
     assert.equal(
       (await req("/public/partners")).body.summary.totalAmount,
       40000000,
@@ -265,7 +282,7 @@ test("partners: admin authorization, public totals, soft deletion, idempotency, 
     );
     assert.equal(
       (await req("/public/notification-feed?source=partners")).body.data.length,
-      0,
+      1,
     );
     await req(`/admin/contributions/${cashId}`, "PATCH", { isPublished: true });
     assert.equal(
@@ -326,6 +343,68 @@ test("partners: admin authorization, public totals, soft deletion, idempotency, 
       (await req(`/admin/partners/${id}/contributions`, "POST", contribution()))
         .status,
       404,
+    );
+    // Draft units stay silent; their first publication broadcasts once to everyone.
+    assert.equal(
+      (await req("/public/notification-feed?source=partners")).body.pagination
+        .total,
+      0,
+    );
+    const publishedDraft = await req(`/admin/partners/${draft.id}`, "PATCH", {
+      isPublished: true,
+    });
+    assert.equal(publishedDraft.status, 200);
+    assert.equal(publishedDraft.body.data.notification.status, "sent");
+    const sentAt = publishedDraft.body.data.notification.sentAt;
+    const publishedNotices = (
+      await req("/public/notification-feed?source=partners")
+    ).body.data;
+    assert.equal(publishedNotices.length, 1);
+    assert.equal(publishedNotices[0].partnerId, draft.id);
+    assert.equal(publishedNotices[0].contributionId, undefined);
+    await req(`/admin/partners/${draft.id}`, "PATCH", {
+      name: "Đã đổi tên",
+      sendNotification: true,
+    });
+    await req(`/admin/partners/${draft.id}`, "PATCH", { isPublished: false });
+    assert.equal(
+      (await req("/public/notification-feed?source=partners")).body.pagination
+        .total,
+      0,
+    );
+    const republished = await req(`/admin/partners/${draft.id}`, "PATCH", {
+      isPublished: true,
+    });
+    assert.equal(republished.body.data.notification.sentAt, sentAt);
+    assert.equal(
+      (await req("/public/notification-feed?source=partners")).body.pagination
+        .total,
+      1,
+    );
+    await req(`/admin/partners/${draft.id}`, "DELETE");
+    // Legacy published units can be explicitly announced once without recreating them.
+    await app.locals.models.partners.partners.create({
+      _id: "legacy-partner",
+      name: "Đơn vị cũ",
+      isPublished: true,
+    });
+    assert.equal(
+      (await req("/public/notification-feed?source=partners")).body.pagination
+        .total,
+      0,
+    );
+    assert.equal(
+      (
+        await req("/admin/partners/legacy-partner", "PATCH", {
+          sendNotification: true,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await req("/public/notification-feed?source=partners")).body.pagination
+        .total,
+      1,
     );
   } finally {
     if (app) await runtime.closeApp(app, server);

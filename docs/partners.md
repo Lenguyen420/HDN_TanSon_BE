@@ -19,3 +19,12 @@ Tổng công khai tính tại thời điểm đọc, từ các khoản công kha
 Thông báo nội bộ tái sử dụng `/public/notification-feed`, `source=partners`, chứa `partnerId`, `contributionId`. `sendNotification=true` chỉ hợp lệ khi đơn vị và khoản đều công khai. Trạng thái `notification.status=sent`, `sentAt` ghi nguyên tử cùng khoản đóng góp: ở đây “sent” nghĩa là đã công bố vào hộp thư nội bộ, không phải thiết bị đã đọc hay gửi Zalo OA. Feed suy ra trực tiếp từ bản ghi này với ID ổn định, nên không có bước gửi bên ngoài và không có bản tin trùng khi retry. Nếu lưu DB thất bại, thông báo cũng không được công bố. Ẩn/xóa khoản hoặc đơn vị sẽ bỏ thông báo khỏi feed. Sửa không chọn gửi không tạo thông báo mới. Mini App nhận qua cơ chế polling hiện có; Zalo OA không được triển khai.
 
 Kiểm tra: `node --test test/partners.test.cjs`; toàn bộ backend `npm test`. Các bài test sử dụng MongoDB tạm riêng, không sửa dữ liệu thật.
+
+## Cập nhật luồng công bố và hiển thị đóng góp
+
+- Công bố đơn vị lần đầu (tạo với `isPublished=true` hoặc chuyển nháp sang công khai) tự tạo thông báo giới thiệu cho mọi người trong hộp thư Mini App. Lưu nháp không thông báo; sửa hoặc ẩn/công bố lại không tạo bản trùng, giữ nguyên thời điểm gửi đầu tiên.
+- Đơn vị công khai từ phiên bản cũ chưa có thông báo: mở Sửa đơn vị, chọn **Gửi thông báo nội bộ**, lưu. Backend nhận `sendNotification=true` và ghi trạng thái một lần. Không tự phát lại tất cả dữ liệu cũ khi đọc API.
+- Thông báo giới thiệu có `partnerId`, không cần `contributionId`; thông báo khoản đóng góp vẫn có cả hai. Admin và Mini App dùng cùng feed `source=partners`.
+- Danh sách đơn vị trả thêm `latestContributions` (tối đa 3 khoản công khai, ngày mới nhất), chỉ gồm tên khoản, loại, tiền hoặc hiện vật/số lượng và ngày; không chứa trường audit hay khoản nháp.
+- Mini App hiện các khoản gần nhất ngay dưới từng đơn vị và nút **Xem lịch sử đóng góp**. Giới thiệu/địa chỉ/website được thu gọn trong trang chi tiết để lịch sử dễ thấy hơn.
+- Admin có **Thêm khoản đóng góp** ngay trên từng dòng đơn vị. Tạo hồ sơ đơn vị không tự sinh khoản tiền/hiện vật. Cần nhập khoản đóng góp thực tế; khoản mới mặc định công khai khi đơn vị đã công khai, và tùy chọn gửi thông báo được chọn sẵn, có thể bỏ chọn.
