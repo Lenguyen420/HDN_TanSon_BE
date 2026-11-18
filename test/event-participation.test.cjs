@@ -71,6 +71,12 @@ test("joining, 30-minute reminders and absence notices use server time and priva
       assert.equal(result.body.data.checkedAt, null);
     }
     assert.equal(await service.records.countDocuments(), 1);
+    const initialInbox = await service.adminInbox({ page: 1, limit: 20 });
+    assert.equal(initialInbox.absentCount, 0);
+    assert.equal(initialInbox.pagination.total, 1);
+    assert.equal(initialInbox.data[0].status, "registered");
+    assert.match(initialInbox.data[0].description, /Hội viên A.*Sự kiện kết nối/);
+    assert.equal(initialInbox.data[0].createdAt, "2030-06-01T01:00:00.000Z");
     now = new Date("2030-06-01T08:29:59+07:00");
     assert.equal((await updates([tokenA])).body.data.length, 0);
     now = new Date("2030-06-01T08:30:00+07:00");
@@ -140,6 +146,8 @@ test("joining, 30-minute reminders and absence notices use server time and priva
     now = new Date("2030-06-01T10:00:00+07:00");
     const inbox = await service.adminInbox({ page: 1, limit: 100 });
     assert.equal(inbox.absentCount, 1);
+    assert.deepEqual(inbox.data.map((item) => item.status), ["absent", "registered", "registered"]);
+    assert.equal(inbox.data[2].id, initialInbox.data[0].id);
     assert.equal(inbox.data[0].participantName, "Hội viên B");
     assert.equal(inbox.data[0].createdAt, "2030-06-01T03:00:00.000Z");
     assert.equal(

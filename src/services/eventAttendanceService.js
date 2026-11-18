@@ -230,7 +230,8 @@ export class EventAttendanceService {
   async adminInbox(query) {
     const now = this.clock();
     const rows = await this.records
-      .find({ registeredAt: { $ne: null }, checkedAt: null })
+      .find({ registeredAt: { $ne: null } })
+      .select("eventId name company registeredAt checkedAt")
       .lean();
     const articles = await this.events.model
       .find({
@@ -239,26 +240,38 @@ export class EventAttendanceService {
         ...this.events.publicFilter(),
       })
       .lean();
+    const articlesById = new Map(articles.map((item) => [item._id, item]));
     const notices = [];
+    let absentCount = 0;
     for (const row of rows) {
-      const article = articles.find((item) => item._id === row.eventId);
-      if (!article || participationStatus(row, article, now) !== "absent")
-        continue;
-      const schedule = eventSchedule(article);
-      notices.push({
-        id: "event-absent-" + row._id + "-" + schedule.end.getTime(),
+      const article = articlesById.get(row.eventId);
+      if (!article) continue;
+      const participant = row.name + (row.company ? " — " + row.company : "");
+      const details = {
         eventId: row.eventId,
-        title: "Vắng mặt tại sự kiện",
-        description:
-          row.name +
-          (row.company ? " — " + row.company : "") +
-          " đã đăng ký nhưng chưa điểm danh: " +
-          article.title,
         participantName: row.name,
         company: row.company,
+        href: "/admin/events",
+      };
+      notices.push({
+        ...details,
+        id: "event-registered-" + row._id,
+        title: "Đăng ký tham gia sự kiện",
+        description: participant + " đã đăng ký tham gia " + article.title + ".",
+        status: "registered",
+        createdAt: row.registeredAt.toISOString(),
+      });
+      if (participationStatus(row, article, now) !== "absent") continue;
+      const schedule = eventSchedule(article);
+      absentCount++;
+      notices.push({
+        ...details,
+        id: "event-absent-" + row._id + "-" + schedule.end.getTime(),
+        title: "Vắng mặt tại sự kiện",
+        description:
+          participant + " đã đăng ký nhưng chưa điểm danh: " + article.title,
         status: "absent",
         createdAt: schedule.end.toISOString(),
-        href: "/admin/events",
       });
     }
     notices.sort(
@@ -270,7 +283,7 @@ export class EventAttendanceService {
         (query.page - 1) * query.limit,
         query.page * query.limit,
       ),
-      absentCount: notices.length,
+      absentCount,
       pagination: {
         page: query.page,
         limit: query.limit,
