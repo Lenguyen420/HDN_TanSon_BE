@@ -1,5 +1,5 @@
 export function eventSchedule(article) {
-  const event = article.event;
+  const event = article?.event;
   const match = event?.time
     ?.trim()
     .match(/^(\d{1,2})[:h](\d{2})\s*[-–—]\s*(\d{1,2})[:h](\d{2})$/);

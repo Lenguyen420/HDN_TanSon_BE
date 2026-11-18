@@ -166,6 +166,25 @@ test("joining, 30-minute reminders and absence notices use server time and priva
       password,
     });
     const admin = login.body.data.accessToken;
+    const historyPath = "/admin/event-participations";
+    assert.equal((await req(historyPath)).status, 401);
+    const history = () => req(historyPath, "GET", undefined, admin);
+    const ended = await history();
+    assert.equal(ended.status, 200);
+    assert.equal(ended.body.pagination.total, 3);
+    const absent = ended.body.data.find((item) => item.name === "Hội viên B");
+    assert.equal(absent.status, "absent");
+    assert.equal(absent.eventTitle, "Sự kiện kết nối");
+    assert.equal(absent.checkedAt, null);
+    assert.ok(absent.registeredAt);
+    assert.equal(Object.hasOwn(absent, "tokenHash"), false);
+    now = new Date("2030-06-01T09:59:59+07:00");
+    const ongoing = await history();
+    assert.equal(
+      ongoing.body.data.find((item) => item.name === "Hội viên B").status,
+      "registered",
+    );
+    now = new Date("2030-06-01T10:00:00+07:00");
     assert.equal(
       (
         await req(

@@ -127,21 +127,35 @@ export class EventAttendanceService {
     return { data: present(record) };
   }
   async list(eventId, query) {
-    const article = await this.events.get(eventId);
+    const article = eventId ? await this.events.get(eventId) : null;
+    const filter = eventId ? { eventId } : {};
     const [rows, total] = await Promise.all([
       this.records
-        .find({ eventId })
+        .find(filter)
         .sort({ registeredAt: -1, checkedAt: -1, _id: 1 })
         .skip((query.page - 1) * query.limit)
         .limit(query.limit)
         .lean(),
-      this.records.countDocuments({ eventId }),
+      this.records.countDocuments(filter),
     ]);
+    const articlesById = new Map();
+    if (!article && rows.length) {
+      const articles = await this.events.model
+        .find({ _id: { $in: [...new Set(rows.map((row) => row.eventId))] } })
+        .select("title event")
+        .lean();
+      for (const item of articles) articlesById.set(item._id, item);
+    }
+    const now = this.clock();
     return {
-      data: rows.map((row) => ({
-        ...present(row),
-        status: participationStatus(row, article, this.clock()),
-      })),
+      data: rows.map((row) => {
+        const event = article || articlesById.get(row.eventId);
+        return {
+          ...present(row),
+          ...(!eventId && { eventTitle: event?.title ?? null }),
+          status: participationStatus(row, event, now),
+        };
+      }),
       pagination: { page: query.page, limit: query.limit, total },
     };
   }

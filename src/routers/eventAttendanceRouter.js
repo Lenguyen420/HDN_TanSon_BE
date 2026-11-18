@@ -48,6 +48,15 @@ export default function eventAttendanceRouter(services) {
       res.json(await services.eventAttendance.adminInbox(res.locals.query));
     },
   );
+  router.get(
+    "/admin/event-participations",
+    authAdmin(services.auth),
+    validateQuery(z.strictObject(baseQuery)),
+    async (req, res) => {
+      res.set("Cache-Control", "no-store");
+      res.json(await services.eventAttendance.list(null, res.locals.query));
+    },
+  );
   const root = "/public/events/:id/check-in";
   router.use(root, createRateLimiter(30), (req, res, next) => {
     res.set("Cache-Control", "no-store");
