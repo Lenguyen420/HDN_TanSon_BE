@@ -11,6 +11,9 @@ const present = ({
   transactionKey,
   proofFileId,
   proofHash,
+  financeRefundId,
+  financeRefundedAt,
+  financeRefundedBy,
   ...row
 }) => ({ id: _id, ...row });
 const memberCampaign = (c) =>
@@ -444,7 +447,7 @@ export class MembershipFeeService {
         .findById(payment.dueId)
         .session(session)
         .lean();
-      await this.lock(due.campaignId, session);
+      const campaign = await this.lock(due.campaignId, session);
       if (payment.status !== "pending" || due.status !== "pending_confirmation")
         throw new HttpError(409, "Thanh toán đã được xử lý.");
       const at = new Date(),
@@ -484,6 +487,8 @@ export class MembershipFeeService {
         },
         { session },
       );
+      if (confirmed)
+        await this.finance?.recordFeeReceipt(row, campaign, session);
       return { data: present(row) };
     });
   }
@@ -549,6 +554,7 @@ export class MembershipFeeService {
           },
           { session },
         );
+        await this.finance?.recordFeeReceipt(payment, campaign, session);
         return { data: present(payment.toObject()) };
       });
     } catch (error) {

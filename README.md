@@ -30,6 +30,8 @@ Trong thư mục backend, chạy `npm install` nếu chưa cài dependency, sau 
 npm run dev
 ```
 
+Sổ quỹ Admin sử dụng MongoDB replica set hoặc Atlas. Xem [API Contract quản lý thu chi](docs/finance-api.md) để tích hợp và đối soát số dư khi mở sổ.
+
 Backend chạy ở `http://localhost:4000`, tự khởi động lại khi sửa source hoặc `.env`. Muốn chạy không theo dõi thay đổi, dùng `npm run start:local`. Hai lệnh dùng MongoDB và JWT_SECRET đã cấu hình trong `.env`, không cần deploy trước. Chế độ local bỏ cờ Vercel để lưu video vào thư mục `uploads/introduction-videos/` trên máy.
 
 Kiểm tra `GET http://localhost:4000/api/v1/health`; kết quả đúng là `{"status":"ok","service":"tanson-backend"}`. Nếu dùng Atlas, vẫn cần Internet và IP được cho phép kết nối database.

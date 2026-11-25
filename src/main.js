@@ -1,4 +1,6 @@
 import createPartnerModels from "./models/Partner.js";
+import createFinanceModels from "./models/Finance.js";
+import { FinanceService } from "./services/financeService.js";
 import { PartnerService } from "./services/partnerService.js";
 import { MembershipFeeAuthService } from "./services/membershipFeeAuthService.js";
 import createMembershipFeeModels from "./models/MembershipFee.js";
@@ -75,6 +77,7 @@ export async function createApp({
     await imageStorage.initialize();
     const models = {
       partners: createPartnerModels(connection),
+      finance: createFinanceModels(connection),
       membershipFees: createMembershipFeeModels(connection),
       localgoPlaces: createLocalGoPlaceModel(connection),
       localgoCategories: createLocalGoCategoryModel(connection),
@@ -162,6 +165,11 @@ export async function createApp({
       models.content.events,
       imageStorage,
     );
+    services.finance = new FinanceService(connection, models.finance, {
+      partners: services.partners,
+      membershipFees: services.membershipFees,
+    });
+    services.membershipFees.finance = services.finance;
     services.registrationNotifications.membershipFees = services.membershipFees;
     services.publicNotifications = new PublicNotificationService(
       services.content,
@@ -194,6 +202,7 @@ export async function createApp({
     );
     await Promise.all([
       services.partners.initialize(),
+      services.finance.initialize(),
       services.membershipFees.initialize(),
       models.localgoPlaces.init(),
       services.localgo.initialize(),
@@ -270,6 +279,10 @@ export async function createApp({
     app.use(
       ["/api/v1/admin/partners", "/api/v1/admin/contributions"],
       express.json({ limit: "4500kb" }),
+    );
+    app.use(
+      "/api/v1/admin/finance/transactions",
+      express.json({ limit: "3mb" }),
     );
     app.use(express.json({ limit: "256kb" }));
     app.use("/api/v1", createApiRateLimiter(), appRouter(services));

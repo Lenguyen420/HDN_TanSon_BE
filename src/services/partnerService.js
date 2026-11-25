@@ -7,7 +7,17 @@ import {
 } from "../utils/httpError.js";
 const hash = (value) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const financeFields = {
+  financeReceiptId: 0,
+  financeReceivedDate: 0,
+  financeReceivedAt: 0,
+  financeReceivedBy: 0,
+  financeRefundId: 0,
+  financeRefundedAt: 0,
+  financeRefundedBy: 0,
+};
 const publicFields = {
+  ...financeFields,
   requestHash: 0,
   audit: 0,
   createdBy: 0,
@@ -383,7 +393,23 @@ export class PartnerService {
     const model = kind === "partner" ? this.partners : this.contributions;
     const current = await model.findOne({ _id: id, deletedAt: null }).lean();
     if (!current) throw new NotFoundError("Không tìm thấy dữ liệu.");
-    if (kind !== "partner") await this.partner(current.partnerId, true);
+    if (kind !== "partner") {
+      await this.partner(current.partnerId, true);
+      if (
+        current.financeReceiptId &&
+        !current.financeRefundId &&
+        (remove ||
+          ["type", "amount", "paymentMethod"].some(
+            (field) => field in input && input[field] !== current[field],
+          ))
+      ) {
+        const error = new ConflictError(
+          "Khoản tài trợ đã ghi sổ. Cần hoàn tiền trước khi thay đổi dữ liệu tài chính.",
+        );
+        error.code = "FINANCE_SPONSORSHIP_LOCKED";
+        throw error;
+      }
+    }
     const values = remove
       ? { deletedAt: new Date(), isPublished: false }
       : kind === "partner"
@@ -432,7 +458,17 @@ export class PartnerService {
       }
       const row = await model
         .findOneAndUpdate(
-          { _id: id, deletedAt: null, updatedAt: current.updatedAt },
+          {
+            _id: id,
+            deletedAt: null,
+            updatedAt: current.updatedAt,
+            ...(kind === "contribution"
+              ? {
+                  financeReceiptId: current.financeReceiptId ?? null,
+                  financeRefundId: current.financeRefundId ?? null,
+                }
+              : {}),
+          },
           update,
           { new: true },
         )

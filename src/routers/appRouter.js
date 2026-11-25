@@ -1,4 +1,5 @@
 import partnerRouter from "./partnerRouter.js";
+import financeRouter from "./financeRouter.js";
 import membershipFeeRouter from "./membershipFeeRouter.js";
 import introductionVideoRouter from "./introductionVideoRouter.js";
 import publicNotificationRouter from "./publicNotificationRouter.js";
@@ -25,6 +26,7 @@ import settingsRouter from "./settingsRouter.js";
 export default function appRouter(services) {
   const router = Router();
   router.use(partnerRouter(services));
+  router.use("/admin/finance", financeRouter(services));
   router.use(membershipFeeRouter(services));
   router.use(localgoRouter(services));
   router.use(tradeRouter(services));
