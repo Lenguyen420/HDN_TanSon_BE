@@ -32,6 +32,7 @@ const settingsView = (row) =>
         initialized: true,
         openingDate: row.openingDate,
         openingBalance: row.openingBalance,
+        openingFeePaymentCount: row.openingFeePaymentCount,
         closedThrough: row.closedThrough ?? null,
         createdBy: row.createdBy,
         createdAt: row.createdAt,
@@ -118,12 +119,47 @@ export class FinanceService {
     });
   }
 
-  async getSettings() {
+  async openingProposal(session, at) {
+    // Existing confirmed payments were collected before the ledger started.
+    // Sponsorship posts do not prove receipt; confirmed sponsorships post directly into the ledger.
+    const [received] = await this.membershipFees.payments
+      .aggregate([
+        {
+          $match: {
+            status: "confirmed",
+            financeRefundId: null,
+            amount: { $gt: 0 },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            balance: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      .session(session);
     return {
-      data: settingsView(
-        await this.settings.findById(financeSettingsId).lean(),
-      ),
+      openingDate: financeToday(at),
+      openingBalance: received?.balance ?? 0,
+      feePaymentCount: received?.count ?? 0,
     };
+  }
+
+  async getSettings() {
+    const settings = await this.settings.findById(financeSettingsId).lean();
+    if (settings.openingDate) return { data: settingsView(settings) };
+    return this.transaction(async (session) => {
+      const snapshot = await this.settings
+        .findById(financeSettingsId)
+        .session(session)
+        .lean();
+      const data = settingsView(snapshot);
+      if (!data.initialized)
+        data.openingProposal = await this.openingProposal(session, new Date());
+      return { data };
+    });
   }
 
   open(input, actorId) {
@@ -134,13 +170,34 @@ export class FinanceService {
           "FINANCE_ALREADY_INITIALIZED",
           "Sổ quỹ đã được thiết lập.",
         );
-      if (input.openingDate > financeToday())
+      const at = new Date();
+      // The fee confirmation flow takes this same ledger lock before committing.
+      const proposal = await this.openingProposal(session, at);
+      if (
+        !Number.isSafeInteger(proposal.openingBalance) ||
+        proposal.openingBalance > maxLedgerTotal
+      )
         throw financeError(
           422,
-          "FINANCE_DATE_OUT_OF_RANGE",
-          "Ngày mở sổ không được ở tương lai.",
+          "FINANCE_TOTAL_LIMIT",
+          "Số tiền đã thu vượt giới hạn sổ quỹ.",
         );
-      const next = { ...input, createdBy: actorId, createdAt: new Date() };
+      if (
+        input.expectedOpeningDate !== proposal.openingDate ||
+        input.expectedOpeningBalance !== proposal.openingBalance
+      )
+        throw financeError(
+          409,
+          "FINANCE_OPENING_CHANGED",
+          "Ngày mở sổ hoặc số tiền đã thu vừa thay đổi. Hãy tải lại và kiểm tra số dư.",
+        );
+      const next = {
+        openingDate: proposal.openingDate,
+        openingBalance: proposal.openingBalance,
+        openingFeePaymentCount: proposal.feePaymentCount,
+        createdBy: actorId,
+        createdAt: at,
+      };
       await this.settings.updateOne(
         { _id: settings._id },
         { $set: next },

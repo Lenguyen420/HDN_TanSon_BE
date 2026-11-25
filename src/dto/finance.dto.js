@@ -34,8 +34,8 @@ const uploads = z.array(fileSchema).max(3);
 const version = z.number().int().positive();
 const reason = text(1000).min(1);
 export const openingBody = z.strictObject({
-  openingDate: financeDate,
-  openingBalance: z.number().int().min(0).max(999_999_999_999_999),
+  expectedOpeningDate: financeDate,
+  expectedOpeningBalance: z.number().int().min(0).max(999_999_999_999_999),
 });
 export const newEntryBody = z.strictObject({
   ...businessFields,

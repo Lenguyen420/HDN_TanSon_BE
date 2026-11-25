@@ -198,6 +198,11 @@ test("finance ledger preserves balances, access control and atomic source histor
           openingDate: null,
           openingBalance: null,
           closedThrough: null,
+          openingProposal: {
+            openingDate: today,
+            openingBalance: 0,
+            feePaymentCount: 0,
+          },
         },
       );
       assert.equal(
@@ -205,20 +210,76 @@ test("finance ledger preserves balances, access control and atomic source histor
         "FINANCE_NOT_INITIALIZED",
       );
       ({ dues } = await newCampaign());
-      const legacy = await pay(dues[0]._id, "FEE-LEGACY");
-      assert.equal(legacy.status, 201, JSON.stringify(legacy.body));
-      assert.equal(await app.locals.models.finance.entries.countDocuments(), 0);
-      const body = { openingDate: first, openingBalance: 20000000 };
-      assert.equal(
-        (await request("/settings/opening", "POST", body, staff)).status,
-        403,
-      );
-      const race = await Promise.all([
-        request("/settings/opening", "POST", body),
-        request("/settings/opening", "POST", body),
+      await app.locals.models.membershipFees.payments.create([
+        { _id: "fee-opening-pending", status: "pending", amount: 900000 },
+        { _id: "fee-opening-rejected", status: "rejected", amount: 800000 },
+        {
+          _id: "fee-opening-refunded",
+          status: "confirmed",
+          financeRefundId: "old-refund",
+          amount: 700000,
+        },
       ]);
-      assert.deepEqual(race.map((r) => r.status).sort(), [201, 409]);
-      assert.equal(await app.locals.models.finance.entries.countDocuments(), 0);
+      await app.locals.models.membershipFees.dues.updateOne(
+        { _id: dues[0]._id },
+        { $set: { amountDue: 20000000 } },
+      );
+      t.mock.timers.enable({
+        apis: ["Date"],
+        now: new Date(first + "T05:00:00.000Z"),
+      });
+      try {
+        const initial = {
+          expectedOpeningDate: first,
+          expectedOpeningBalance: 0,
+        };
+        const legacy = await pay(dues[0]._id, "FEE-LEGACY");
+        assert.equal(legacy.status, 201, JSON.stringify(legacy.body));
+        assert.equal(
+          await app.locals.models.finance.entries.countDocuments(),
+          0,
+        );
+        const stale = await request("/settings/opening", "POST", initial);
+        assert.equal(stale.body.code, "FINANCE_OPENING_CHANGED");
+        assert.equal(
+          (
+            await request("/settings/opening", "POST", {
+              openingDate: first,
+              openingBalance: 999,
+            })
+          ).status,
+          400,
+        );
+        const proposal = (await request("/settings")).body.data.openingProposal;
+        assert.deepEqual(proposal, {
+          openingDate: first,
+          openingBalance: 20000000,
+          feePaymentCount: 1,
+        });
+        const body = {
+          expectedOpeningDate: first,
+          expectedOpeningBalance: proposal.openingBalance,
+        };
+        assert.equal(
+          (await request("/settings/opening", "POST", body, staff)).status,
+          403,
+        );
+        const race = await Promise.all([
+          request("/settings/opening", "POST", body),
+          request("/settings/opening", "POST", body),
+        ]);
+        assert.deepEqual(race.map((r) => r.status).sort(), [201, 409]);
+        assert.equal(
+          race.find((r) => r.status === 201).body.data.openingBalance,
+          20000000,
+        );
+        assert.equal(
+          await app.locals.models.finance.entries.countDocuments(),
+          0,
+        );
+      } finally {
+        t.mock.timers.reset();
+      }
       assert.equal(
         (await add(entry(day(-6), "INCOME", 1, "Too early"))).body.code,
         "FINANCE_DATE_OUT_OF_RANGE",
@@ -283,8 +344,21 @@ test("finance ledger preserves balances, access control and atomic source histor
         Buffer.from(proof.base64, "base64").toString(),
       );
       assert.match(file.headers.get("cache-control"), /no-store/);
-      const expense = await add(entry(first, "EXPENSE", 500000, "In tài liệu"));
+      const expense = await add(
+        entry(first, "EXPENSE", 500000, "Chi mua hoa tặng đơn vị", {
+          counterparty: "Đơn vị A",
+        }),
+      );
       assert.equal(expense.status, 201);
+      const firstDay = (await request("/daily/" + first)).body.data;
+      assert.equal(firstDay.closingBalance, 21500000);
+      assert.equal(
+        firstDay.transactions.find((row) => row.id === expense.body.data.id)
+          .counterparty,
+        "Đơn vị A",
+      );
+      const following = (await request("/daily/" + empty)).body.data;
+      assert.equal(following.openingBalance, firstDay.closingBalance);
       const secondIncome = await add(
         entry(second, "INCOME", 3000000, "Khoản thu"),
       );

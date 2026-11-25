@@ -106,6 +106,7 @@ export default function createFinanceModels(connection) {
           revision: Number,
           openingDate: String,
           openingBalance: Number,
+          openingFeePaymentCount: Number,
           closedThrough: String,
           createdBy: String,
           createdAt: Date,

@@ -9,7 +9,7 @@ Hai vai trò dùng cùng cơ chế đăng nhập hiện tại. `SUPER_ADMIN` có
 | Method | Đường dẫn tương đối                     | Request                                                        | Response thành công                                                  | Quyền tối thiểu                                       |
 | ------ | --------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------- |
 | GET    | `/settings`                             | —                                                              | 200 `{data: FinanceSettings}`                                        | STAFF                                                 |
-| POST   | `/settings/opening`                     | `{openingDate, openingBalance}`                                | 201 `{data: FinanceSettings}`                                        | SUPER_ADMIN                                           |
+| POST   | `/settings/opening`                     | `{expectedOpeningDate, expectedOpeningBalance}`                | 201 `{data: FinanceSettings}`                                        | SUPER_ADMIN                                           |
 | GET    | `/summary`                              | `from?, to?`                                                   | 200 `{data: Summary}`                                                | STAFF                                                 |
 | GET    | `/daily`                                | `from?, to?, type?, q?, status?, includeEmpty?, page?, limit?` | 200 `{data: DailyRow[], pagination, from, to}`                       | STAFF                                                 |
 | GET    | `/daily/:date`                          | `type?, q?, page?, limit?`                                     | 200 `{data: {...DailyRow, transactions: Transaction[], pagination}}` | STAFF                                                 |
@@ -36,6 +36,7 @@ Endpoint tạo phiếu, đảo phiếu và nhận tài trợ yêu cầu `Idempot
 - `from` mặc định ngày đầu của tháng chứa `to`; `to` mặc định hôm nay. Khoảng bao gồm hai đầu. Nếu `from` trước ngày mở sổ thì lấy từ ngày mở sổ; khoảng nằm hoàn toàn trước ngày mở sổ trả 422. Lịch sử và XLSX tối đa 366 ngày mỗi lần.
 - `pagination` gồm `page` từ 1 đến 100000, `limit` từ 1 đến 100 (mặc định lần lượt 1 và 20), `total` là số mục sau lọc. Ngày sắp xếp mới trước. Phiếu và audit trong một ngày sắp theo giờ tạo rồi ID tăng dần.
 - Theo mặc định lịch sử liệt kê ngày có phiếu (kể cả ngày chỉ có phiếu hủy) hoặc snapshot chốt. Dùng `includeEmpty=true` để xem cả ngày trống. `type` và `q` lọc ngày có phiếu **đang ghi sổ** phù hợp, kể cả khi bật `includeEmpty`. `q` tối đa 200 ký tự, tìm chuỗi nguyên văn trong nội dung và không phân biệt hoa thường.
+- Số dư đầu mỗi ngày kế thừa số dư cuối của ngày trước, kể cả qua ngày trống hoặc khi chưa thao tác chốt thủ công. Số dư cuối ngày bằng số dư đầu ngày cộng tổng thu trừ tổng chi của ngày đó.
 - Báo cáo giữ nguyên số dư và tổng thực tế khi áp dụng bộ lọc lịch sử. Chi tiết ngày hiển thị cả phiếu hủy; bộ lọc nếu có chỉ tác động đến danh sách phiếu. Khoảng ngày đầu kỳ/cuối kỳ dùng số dư ở đầu/cuối kỳ; phiếu hủy không tính vào số tiền.
 
 ## Request và response
@@ -50,12 +51,19 @@ Endpoint tạo phiếu, đảo phiếu và nhận tài trợ yêu cầu `Idempot
     "initialized": false,
     "openingDate": null,
     "openingBalance": null,
-    "closedThrough": null
+    "closedThrough": null,
+    "openingProposal": {
+      "openingDate": "2026-11-23",
+      "openingBalance": 20000000,
+      "feePaymentCount": 12
+    }
   }
 }
 ```
 
-`POST /settings/opening` nhận `{"openingDate":"2026-11-23","openingBalance":20000000}`. Thành công trả `initialized: true`, các giá trị đã lưu, `closedThrough: null`, `createdBy` (ID admin), `createdAt` (UTC). Sau khi chốt, `closedThrough` là ngày mới nhất đã chốt. Chỉ mở sổ một lần. Ví dụ tài liệu dùng dữ liệu minh họa.
+`openingProposal` chứa ngày hiện tại theo giờ Việt Nam và tổng số tiền thanh toán hội phí đã xác nhận thực nhận, sau khi loại các khoản đã hoàn tiền. `POST /settings/opening` nhận `{"expectedOpeningDate":"2026-11-23","expectedOpeningBalance":20000000}` lấy nguyên giá trị từ đề xuất để xác nhận. Backend kiểm tra lại ngày và số tiền trong transaction trước khi mở sổ. Nếu giá trị thay đổi, API trả `409 FINANCE_OPENING_CHANGED` để Frontend tải lại.
+
+Thành công trả `initialized: true`, `openingDate`, `openingBalance`, `openingFeePaymentCount`, `closedThrough: null`, `createdBy` và `createdAt`. Chỉ mở sổ một lần. Sổ đã được mở từ trước tiếp tục dùng số dư gốc đã lưu. Sau khi chốt, `closedThrough` là ngày mới nhất đã chốt.
 
 ### Tổng hợp và theo ngày
 
@@ -186,21 +194,21 @@ Phiếu nguồn có `sourceId`, `sourceEventKey`; phiếu đảo có `reversalOf
 
 Lỗi nghiệp vụ trả ví dụ `{"statusCode":409,"success":false,"code":"FINANCE_DATE_CLOSED","message":"Ngày đã chốt sổ."}`. Lỗi validation Zod dùng `{statusCode:400,message:string[]}`. Auth và rate limit dùng envelope hiện tại `{statusCode,message}`.
 
-| HTTP | Mã hoặc tình huống                                                                                                                                                                                                                                                                                                           |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | Validation, `FINANCE_INVALID_IDEMPOTENCY_KEY`, `FINANCE_INVALID_ATTACHMENTS`, định dạng chứng từ sai                                                                                                                                                                                                                         |
-| 401  | JWT thiếu, sai hoặc hết hạn                                                                                                                                                                                                                                                                                                  |
-| 403  | `FINANCE_FORBIDDEN` cho thao tác yêu cầu vai trò cao hơn                                                                                                                                                                                                                                                                     |
-| 404  | `FINANCE_ENTRY_NOT_FOUND`, `FINANCE_ATTACHMENT_NOT_FOUND`, `FINANCE_SPONSORSHIP_NOT_FOUND`                                                                                                                                                                                                                                   |
-| 409  | `FINANCE_NOT_INITIALIZED`, `FINANCE_ALREADY_INITIALIZED`, `FINANCE_DATE_CLOSED`, `FINANCE_CLOSE_OUT_OF_ORDER`, `FINANCE_ENTRY_LOCKED`, `FINANCE_VERSION_CONFLICT`, `FINANCE_IDEMPOTENCY_CONFLICT`, `FINANCE_NOT_REVERSIBLE`, `FINANCE_SPONSORSHIP_ALREADY_RECEIVED`, `FINANCE_SPONSORSHIP_LOCKED`, `FINANCE_SOURCE_CONFLICT` |
-| 413  | Body hoặc chứng từ vượt giới hạn                                                                                                                                                                                                                                                                                             |
-| 422  | `FINANCE_DATE_OUT_OF_RANGE`, `FINANCE_INSUFFICIENT_FUNDS`, `FINANCE_REVERSAL_DATE`, `FINANCE_SPONSORSHIP_NOT_CASH`, `FINANCE_TOTAL_LIMIT`, `FINANCE_RANGE_TOO_LONG`, `FINANCE_EXPORT_LIMIT`                                                                                                                                  |
-| 429  | Giới hạn tần suất hiện có                                                                                                                                                                                                                                                                                                    |
+| HTTP | Mã hoặc tình huống                                                                                                                                                                                                                                                                                                                                      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | Validation, `FINANCE_INVALID_IDEMPOTENCY_KEY`, `FINANCE_INVALID_ATTACHMENTS`, định dạng chứng từ sai                                                                                                                                                                                                                                                    |
+| 401  | JWT thiếu, sai hoặc hết hạn                                                                                                                                                                                                                                                                                                                             |
+| 403  | `FINANCE_FORBIDDEN` cho thao tác yêu cầu vai trò cao hơn                                                                                                                                                                                                                                                                                                |
+| 404  | `FINANCE_ENTRY_NOT_FOUND`, `FINANCE_ATTACHMENT_NOT_FOUND`, `FINANCE_SPONSORSHIP_NOT_FOUND`                                                                                                                                                                                                                                                              |
+| 409  | `FINANCE_NOT_INITIALIZED`, `FINANCE_ALREADY_INITIALIZED`, `FINANCE_OPENING_CHANGED`, `FINANCE_DATE_CLOSED`, `FINANCE_CLOSE_OUT_OF_ORDER`, `FINANCE_ENTRY_LOCKED`, `FINANCE_VERSION_CONFLICT`, `FINANCE_IDEMPOTENCY_CONFLICT`, `FINANCE_NOT_REVERSIBLE`, `FINANCE_SPONSORSHIP_ALREADY_RECEIVED`, `FINANCE_SPONSORSHIP_LOCKED`, `FINANCE_SOURCE_CONFLICT` |
+| 413  | Body hoặc chứng từ vượt giới hạn                                                                                                                                                                                                                                                                                                                        |
+| 422  | `FINANCE_DATE_OUT_OF_RANGE`, `FINANCE_INSUFFICIENT_FUNDS`, `FINANCE_REVERSAL_DATE`, `FINANCE_SPONSORSHIP_NOT_CASH`, `FINANCE_TOTAL_LIMIT`, `FINANCE_RANGE_TOO_LONG`, `FINANCE_EXPORT_LIMIT`                                                                                                                                                             |
+| 429  | Giới hạn tần suất hiện có                                                                                                                                                                                                                                                                                                                               |
 
 Với lỗi version/day closed, tải lại chi tiết trước khi trình bày trạng thái hoặc lưu lần nữa. Với lỗi mạng khi tạo/đảo/xác nhận, giữ nguyên dữ liệu form và key đến khi biết kết quả. Kiểm tra `GET /settings` trước khi tải báo cáo và hiển thị thao tác mở sổ theo vai trò.
 
 ## Triển khai, đối soát và kiểm thử
 
 - Dùng MongoDB Atlas hoặc MongoDB replica set (MongoDB 5.2 trở lên cho truy vấn tổng hợp ngày). Khởi động Backend bằng lệnh hiện tại `npm start` hoặc `npm run start:local` để tạo các collection `finance_*`, index và bản ghi khóa kỹ thuật. Migration cộng thêm schema, không thay đổi/xóa bản ghi cũ. Không cần chạy lệnh backfill. Tài khoản DB cần quyền tạo collection/index như các module hiện có.
-- Đối chiếu số tiền thực có ở tiền mặt và ngân hàng ngay **trước** ngày mở sổ. Bao gồm khoản cũ đã nằm trong số dư đó. Sau đó mở sổ bằng tài khoản `SUPER_ADMIN`, rồi so sánh giao dịch ngân hàng/tiền mặt với tổng và danh sách thu chi. Thanh toán hội phí đã xác nhận trước thời điểm thiết lập và tài trợ cũ không tự nhập lại. Nếu mở sổ hồi tố, đối chiếu những khoản thực nhận kể từ ngày đã chọn đến thời điểm thiết lập và lập phiếu bổ sung có chứng từ chỉ cho khoản chưa nằm trong số dư. Dùng xác nhận nguồn trực tiếp cho tài trợ còn chưa ghi nhận khi thực nhận nằm trong ngày mở và chưa được tính vào quỹ.
+- `SUPER_ADMIN` xác nhận mở sổ trong ngày hiện tại theo giờ Việt Nam. Thanh toán hội phí đã thực nhận trước thời điểm mở sổ được tính một lần vào số dư đầu kỳ. Hội phí thực nhận sau thời điểm mở sổ được ghi thành phiếu thu. Đối chiếu sổ với tiền mặt và ngân hàng. Khoản chi cũ hoặc khoản thu ngoài hội phí chưa xuất hiện trong hệ thống cần được ghi nhận bằng phiếu phù hợp sau khi mở sổ. Khoản tài trợ công khai chỉ được tính từ khi xác nhận thực nhận.
 - Chạy `node --test test/finance.test.cjs` trên MongoDB replica set tạm, rồi `npm test` cho toàn bộ Backend. Kiểm tra môi trường tích hợp bằng cách đăng nhập cả hai vai trò, mở sổ, tạo phiếu có chứng từ, gửi lại cùng key, xem số dư liên ngày, xác nhận một khoản hội phí và một tài trợ tiền, chốt, đảo phiếu vào ngày mở rồi tải XLSX. Dùng database thử nghiệm và không khởi tạo số dư minh họa trên production.
